@@ -1,0 +1,97 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    --font-accessible: 'Atkinson Hyperlegible', sans-serif;
+  }
+  
+  body {
+    font-family: var(--font-sans);
+    min-height: 100vh;
+    background-color: #ffffff;
+    color: #000000;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/* Accessibility Themes */
+body.font-accessible {
+  font-family: var(--font-accessible) !important;
+}
+
+/* Strobe visual flash animations */
+@keyframes strobe-flash-red {
+  0%, 100% { background-color: #ef4444; color: #ffffff; }
+  50% { background-color: #ffffff; color: #000000; }
+}
+
+@keyframes strobe-flash-yellow {
+  0%, 100% { background-color: #eab308; color: #000000; }
+  50% { background-color: #000000; color: #ffffff; }
+}
+
+@keyframes strobe-flash-blue {
+  0%, 100% { background-color: #3b82f6; color: #ffffff; }
+  50% { background-color: #ffffff; color: #000000; }
+}
+
+.animate-strobe-red {
+  animation: strobe-flash-red 0.3s ease-in-out infinite;
+}
+
+.animate-strobe-yellow {
+  animation: strobe-flash-yellow 0.35s ease-in-out infinite;
+}
+
+.animate-strobe-blue {
+  animation: strobe-flash-blue 0.35s ease-in-out infinite;
+}
+
+/* Pulsing audio wave bars */
+@keyframes wave-bounce {
+  0%, 100% { height: 6px; }
+  50% { height: 28px; }
+}
+
+.wave-bar-1 { animation: wave-bounce 0.8s ease-in-out infinite 0.1s; }
+.wave-bar-2 { animation: wave-bounce 0.8s ease-in-out infinite 0.25s; }
+.wave-bar-3 { animation: wave-bounce 0.8s ease-in-out infinite 0.4s; }
+.wave-bar-4 { animation: wave-bounce 0.8s ease-in-out infinite 0.15s; }
+.wave-bar-5 { animation: wave-bounce 0.8s ease-in-out infinite 0.35s; }
+
+/* VLibras Widget styling */
+[vw] {
+  z-index: 45 !important;
+}
+
+[vw-access-button] {
+  bottom: 80px !important;
+  right: 12px !important;
+  border-radius: 16px !important;
+  box-shadow: 0 10px 25px -5px rgba(2, 132, 199, 0.4) !important;
+}
+
+@media (min-width: 768px) {
+  [vw-access-button] {
+    bottom: 30px !important;
+    right: 20px !important;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+

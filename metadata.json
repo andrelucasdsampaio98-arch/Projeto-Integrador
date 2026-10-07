@@ -1,0 +1,6 @@
+{
+  "name": "Ponte - Comunica Acessível",
+  "description": "Aplicativo de comunicação acessível para alunos surdos e mudos com Falar por mim, Ouvir e legendar, Frases rápidas, Libras com avatar animado, Alerta visual e Soluções de sistema.",
+  "requestFramePermissions": ["camera", "microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
