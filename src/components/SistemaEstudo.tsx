@@ -18,7 +18,6 @@ import {
   RotateCcw, 
   Check, 
   Layers, 
-  UserCheck, 
   Clock, 
   Calendar,
   AlertCircle,
@@ -30,7 +29,7 @@ import {
   ArrowRight,
   Headphones
 } from 'lucide-react';
-import { Lesson, LessonPdfFile, LessonMp3Video, UserRole, AppSettings } from '../types';
+import { Lesson, LessonPdfFile, LessonMp3Video, UserRole, AppSettings, UserAccount } from '../types';
 import { INITIAL_LESSONS } from '../data/lessonsData';
 import { TeacherLessonModal } from './TeacherLessonModal';
 import { StudentLessonDetailModal } from './StudentLessonDetailModal';
@@ -43,7 +42,9 @@ interface SistemaEstudoProps {
   isSpeaking: boolean;
   cancelSpeak: () => void;
   userRole?: UserRole;
+  currentUser?: UserAccount | null;
   onRoleChange?: (role: UserRole) => void;
+  onOpenLogin?: () => void;
 }
 
 const STORAGE_KEY = 'ponte_sistema_estudo_aulas';
@@ -55,7 +56,9 @@ export const SistemaEstudo: React.FC<SistemaEstudoProps> = ({
   isSpeaking,
   cancelSpeak,
   userRole: propUserRole,
-  onRoleChange: propOnRoleChange
+  currentUser,
+  onRoleChange: propOnRoleChange,
+  onOpenLogin
 }) => {
   // Current active role: 'aluno' or 'professor'
   const [internalRole, setInternalRole] = useState<UserRole>(() => {
@@ -261,38 +264,56 @@ export const SistemaEstudo: React.FC<SistemaEstudoProps> = ({
             </p>
           </div>
 
-          {/* Explicit Portals Selector */}
+          {/* Visual Indicator of Current Dedicated Access with User and Matricula */}
           <div className="flex flex-col sm:flex-row items-end sm:items-center gap-2">
-            <span className="text-[11px] font-extrabold uppercase text-slate-500 hidden sm:inline">
-              Perfil Ativo:
-            </span>
-            <div className="flex items-center bg-slate-100 p-1.5 rounded-2xl border border-slate-300 shadow-xs">
-              <button
-                onClick={() => handleRoleChange('aluno')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black transition ${
-                  userRole === 'aluno'
-                    ? 'bg-black text-white shadow-sm'
-                    : 'text-slate-700 hover:text-black hover:bg-slate-200'
-                }`}
-                title="Acessar o Portal do Aluno"
-              >
-                <UserCheck className="h-4 w-4" />
-                <span>🎓 Acesso Aluno</span>
-              </button>
-
-              <button
-                onClick={() => handleRoleChange('professor')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black transition ${
-                  userRole === 'professor'
-                    ? 'bg-black text-white shadow-sm'
-                    : 'text-slate-700 hover:text-black hover:bg-slate-200'
-                }`}
-                title="Acessar o Portal do Professor"
-              >
-                <BookOpen className="h-4 w-4" />
-                <span>👨‍🏫 Acesso Professor</span>
-              </button>
+            <div className="flex items-center gap-2.5 px-4 py-2 rounded-2xl bg-slate-100 border border-slate-300 text-xs font-black shadow-xs">
+              {userRole === 'professor' ? (
+                <>
+                  <BookOpen className="h-4 w-4 text-black shrink-0" />
+                  <div className="text-left">
+                    <div className="flex items-center gap-1.5">
+                      <span>{currentUser ? currentUser.name : 'Acesso do Professor'}</span>
+                      <span className="text-[10px] bg-black text-white px-2 py-0.5 rounded font-black">
+                        Docente
+                      </span>
+                    </div>
+                    {currentUser && (
+                      <span className="text-[10px] text-slate-600 font-bold block">
+                        Matrícula: {currentUser.matricula}
+                      </span>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <GraduationCap className="h-4 w-4 text-black shrink-0" />
+                  <div className="text-left">
+                    <div className="flex items-center gap-1.5">
+                      <span>{currentUser ? currentUser.name : 'Acesso do Aluno'}</span>
+                      <span className="text-[10px] bg-black text-white px-2 py-0.5 rounded font-black">
+                        Estudante
+                      </span>
+                    </div>
+                    {currentUser && (
+                      <span className="text-[10px] text-slate-600 font-bold block">
+                        Matrícula: {currentUser.matricula}
+                      </span>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
+
+            {onOpenLogin && (
+              <button
+                type="button"
+                onClick={onOpenLogin}
+                className="text-[11px] font-extrabold text-slate-600 hover:text-black underline px-2 py-1"
+                title="Acessar com outra matrícula ou cadastrar novo usuário"
+              >
+                Trocar Matrícula
+              </button>
+            )}
           </div>
         </div>
 

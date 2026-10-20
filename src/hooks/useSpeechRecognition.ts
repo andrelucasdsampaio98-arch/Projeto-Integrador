@@ -1,4 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { 
+  mergeTranscriptWithOverlap, 
+  cleanRepeatedWords, 
+  sanitizeInterimTranscript 
+} from '../utils/speechDeduplication';
 
 // Declare types for Web Speech API SpeechRecognition
 interface IWindow extends Window {
@@ -13,9 +18,22 @@ export function useSpeechRecognition() {
   const [interimTranscript, setInterimTranscript] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSecureOrigin, setIsSecureOrigin] = useState(true);
+  const [antiRepeatEnabled, setAntiRepeatEnabled] = useState(true);
+  const [duplicatesCount, setDuplicatesCount] = useState(0);
 
   const recognitionRef = useRef<any>(null);
   const shouldListenRef = useRef(false);
+  const lastProcessedIndexRef = useRef<number>(-1);
+  const transcriptRef = useRef<string>('');
+  const antiRepeatEnabledRef = useRef(antiRepeatEnabled);
+
+  useEffect(() => {
+    antiRepeatEnabledRef.current = antiRepeatEnabled;
+  }, [antiRepeatEnabled]);
+
+  useEffect(() => {
+    transcriptRef.current = transcript;
+  }, [transcript]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -42,21 +60,41 @@ export function useSpeechRecognition() {
 
         recognition.onresult = (event: any) => {
           let currentInterim = '';
-          let currentFinal = '';
+          const newFinalPieces: string[] = [];
 
-          for (let i = event.resultIndex; i < event.results.length; i++) {
+          // Process finalized results strictly once per session
+          for (let i = 0; i < event.results.length; i++) {
             const item = event.results[i];
             if (item.isFinal) {
-              currentFinal += item[0].transcript + ' ';
+              if (i > lastProcessedIndexRef.current) {
+                lastProcessedIndexRef.current = i;
+                newFinalPieces.push(item[0].transcript);
+              }
             } else {
-              currentInterim += item[0].transcript;
+              currentInterim += item[0].transcript + ' ';
             }
           }
 
-          if (currentFinal) {
-            setTranscript((prev) => (prev ? prev + ' ' + currentFinal.trim() : currentFinal.trim()));
+          if (newFinalPieces.length > 0) {
+            const incomingChunk = newFinalPieces.join(' ');
+            const { merged, removedOverlapCount } = mergeTranscriptWithOverlap(
+              transcriptRef.current,
+              incomingChunk,
+              antiRepeatEnabledRef.current
+            );
+            transcriptRef.current = merged;
+            setTranscript(merged);
+            if (removedOverlapCount > 0) {
+              setDuplicatesCount((prev) => prev + removedOverlapCount);
+            }
           }
-          setInterimTranscript(currentInterim);
+
+          const sanitizedInterim = sanitizeInterimTranscript(
+            transcriptRef.current,
+            currentInterim,
+            antiRepeatEnabledRef.current
+          );
+          setInterimTranscript(sanitizedInterim);
         };
 
         recognition.onerror = (event: any) => {
@@ -75,6 +113,9 @@ export function useSpeechRecognition() {
         };
 
         recognition.onend = () => {
+          // Reset session index tracking for next recognition session to prevent index desync
+          lastProcessedIndexRef.current = -1;
+
           if (shouldListenRef.current) {
             try {
               recognition.start();
@@ -113,6 +154,7 @@ export function useSpeechRecognition() {
     try {
       setErrorMessage(null);
       shouldListenRef.current = true;
+      lastProcessedIndexRef.current = -1;
       recognitionRef.current.start();
       setIsListening(true);
     } catch {
@@ -133,8 +175,25 @@ export function useSpeechRecognition() {
   }, []);
 
   const clearTranscript = useCallback(() => {
+    transcriptRef.current = '';
     setTranscript('');
     setInterimTranscript('');
+    lastProcessedIndexRef.current = -1;
+    setDuplicatesCount(0);
+  }, []);
+
+  const setManualTranscript = useCallback((newText: string) => {
+    transcriptRef.current = newText;
+    setTranscript(newText);
+  }, []);
+
+  const optimizeTranscript = useCallback(() => {
+    const { cleaned, removedCount } = cleanRepeatedWords(transcriptRef.current);
+    transcriptRef.current = cleaned;
+    setTranscript(cleaned);
+    if (removedCount > 0) {
+      setDuplicatesCount((prev) => prev + removedCount);
+    }
   }, []);
 
   return {
@@ -144,9 +203,13 @@ export function useSpeechRecognition() {
     interimTranscript,
     errorMessage,
     isSecureOrigin,
+    antiRepeatEnabled,
+    setAntiRepeatEnabled,
+    duplicatesCount,
     startListening,
     stopListening,
     clearTranscript,
-    setTranscript,
+    setTranscript: setManualTranscript,
+    optimizeTranscript,
   };
 }

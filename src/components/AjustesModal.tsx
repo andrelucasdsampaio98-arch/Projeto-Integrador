@@ -185,9 +185,9 @@ export const AjustesModal: React.FC<AjustesModalProps> = ({
         {/* Setting 5: Vibração Háptica */}
         <div className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 border border-slate-300">
           <div>
-            <strong className="text-xs font-black text-black block">Vibração em Alertas e Toques</strong>
+            <strong className="text-xs font-black text-black block">Vibração Háptica ao Tocar</strong>
             <p className="text-[11px] text-slate-600">
-              Vibra o celular ao disparar alertas visuais e confirmar toques em frases.
+              Vibra o celular ao confirmar toques em frases e botões de ação.
             </p>
           </div>
           <button

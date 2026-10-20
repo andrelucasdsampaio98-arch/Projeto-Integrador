@@ -9,7 +9,6 @@ import {
   Mic, 
   MessageSquare, 
   Hand, 
-  Bell, 
   Layers, 
   Wifi, 
   Sliders, 
@@ -22,19 +21,25 @@ import {
   BookOpen,
   UserCheck,
   ShieldCheck,
-  Check
+  Check,
+  LogIn,
+  LogOut,
+  User,
+  Key,
+  UserPlus
 } from 'lucide-react';
 
-import { ActiveTab, AppSettings, UserRole } from './types';
+import { ActiveTab, AppSettings, UserRole, UserAccount } from './types';
 import { useSpeechSynthesis } from './hooks/useSpeechSynthesis';
 import { useSpeechRecognition } from './hooks/useSpeechRecognition';
+import { getCurrentUser, setCurrentUser as setStoredCurrentUser } from './data/authUsersData';
+import { AuthPortalModal } from './components/AuthPortalModal';
 
 import { SistemaEstudo } from './components/SistemaEstudo';
 import { FalarPorMim } from './components/FalarPorMim';
 import { OuvirLegendar } from './components/OuvirLegendar';
 import { FrasesRapidas } from './components/FrasesRapidas';
 import { VLibrasWidget } from './components/LibrasAvatar/VLibrasWidget';
-import { AlertaVisual } from './components/AlertaVisual';
 import { SolucoesSistema } from './components/SolucoesSistema';
 import { AcessoPorIP } from './components/AcessoPorIP';
 import { AjustesModal } from './components/AjustesModal';
@@ -52,12 +57,19 @@ const INITIAL_SETTINGS: AppSettings = {
 };
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<ActiveTab>('falar');
+  const [activeTab, setActiveTab] = useState<ActiveTab>('estudos');
   const [showSettings, setShowSettings] = useState(false);
-  const [showPortalModal, setShowPortalModal] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+
+  // Authenticated user session
+  const [currentUser, setCurrentUser] = useState<UserAccount | null>(() => {
+    return getCurrentUser();
+  });
 
   // Separate Role Access: 'aluno' | 'professor'
   const [userRole, setUserRole] = useState<UserRole>(() => {
+    const user = getCurrentUser();
+    if (user) return user.role;
     try {
       const saved = localStorage.getItem('ponte_sistema_estudo_role');
       if (saved === 'aluno' || saved === 'professor') return saved;
@@ -67,15 +79,36 @@ export default function App() {
     return 'aluno';
   });
 
+  // If no user is logged in, show auth modal on initial access
+  useEffect(() => {
+    if (!currentUser) {
+      setShowAuthModal(true);
+    }
+  }, []);
+
+  const handleSuccessLogin = (user: UserAccount) => {
+    setCurrentUser(user);
+    setUserRole(user.role);
+    setShowAuthModal(false);
+    setActiveTab('estudos');
+  };
+
+  const handleLogout = () => {
+    setStoredCurrentUser(null);
+    setCurrentUser(null);
+    setShowAuthModal(true);
+  };
+
   const handleSwitchRole = (newRole: UserRole) => {
     setUserRole(newRole);
     try {
       localStorage.setItem('ponte_sistema_estudo_role', newRole);
-    } catch {
-      // fallback
+    } catch {}
+    if (!currentUser || currentUser.role !== newRole) {
+      setShowAuthModal(true);
+    } else {
+      setActiveTab('estudos');
     }
-    setActiveTab('estudos');
-    setShowPortalModal(false);
   };
 
   const [settings, setSettings] = useState<AppSettings>(() => {
@@ -120,9 +153,13 @@ export default function App() {
     interimTranscript,
     errorMessage: sttError,
     isSecureOrigin,
+    antiRepeatEnabled,
+    setAntiRepeatEnabled,
+    duplicatesCount,
     startListening,
     stopListening,
     clearTranscript,
+    optimizeTranscript,
   } = useSpeechRecognition();
 
   // Tab definitions customized by active role
@@ -138,7 +175,6 @@ export default function App() {
     { id: 'ouvir', label: 'Ouvir e legendar', icon: Mic, color: 'text-emerald-400', badge: isListening ? 'Ouvindo' : undefined },
     { id: 'frases', label: 'Frases rápidas', icon: MessageSquare, color: 'text-purple-400' },
     { id: 'libras', label: 'Libras 3D Gov', icon: Sparkles, color: 'text-blue-400' },
-    { id: 'alerta', label: 'Alerta visual', icon: Bell, color: 'text-rose-400' },
     { id: 'solucoes', label: 'Soluções de sistema', icon: Layers, color: 'text-blue-400' },
     { id: 'rede', label: 'Acesso por IP', icon: Wifi, color: 'text-sky-400' },
   ];
@@ -184,34 +220,70 @@ export default function App() {
 
           {/* Right Header Utilities */}
           <div className="flex items-center gap-2 sm:gap-3">
-            {/* Separate Portal Access Switcher */}
-            <button
-              onClick={() => setShowPortalModal(true)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black transition border shadow-xs ${
-                userRole === 'professor'
-                  ? 'bg-black text-white border-black'
-                  : 'bg-white hover:bg-slate-100 text-black border-slate-300'
-              }`}
-              title="Acessar separadamente Portal do Aluno ou Portal do Professor"
-            >
-              {userRole === 'professor' ? (
-                <>
-                  <BookOpen className="h-4 w-4 text-white" />
-                  <span className="hidden sm:inline">Acesso: Professor</span>
-                  <span className="text-[10px] bg-white text-black px-1.5 py-0.5 rounded font-black sm:ml-1">Docente</span>
-                </>
-              ) : (
-                <>
-                  <UserCheck className="h-4 w-4 text-black" />
-                  <span className="hidden sm:inline">Acesso: Aluno</span>
-                  <span className="text-[10px] bg-black text-white px-1.5 py-0.5 rounded font-black sm:ml-1">Estudante</span>
-                </>
-              )}
-            </button>
+            {/* Authenticated User & Portal Button */}
+            {currentUser ? (
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => setShowAuthModal(true)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black transition border shadow-xs ${
+                    userRole === 'professor'
+                      ? 'bg-black text-white border-black'
+                      : 'bg-white hover:bg-slate-100 text-black border-slate-300'
+                  }`}
+                  title={`Usuário logado: ${currentUser.name} (Matrícula: ${currentUser.matricula}). Clique para gerenciar conta.`}
+                >
+                  {userRole === 'professor' ? (
+                    <>
+                      <BookOpen className="h-4 w-4 text-white" />
+                      <span className="hidden sm:inline font-black truncate max-w-[130px]">
+                        {currentUser.name}
+                      </span>
+                      <span className="text-[10px] bg-white text-black px-1.5 py-0.5 rounded font-black sm:ml-1">
+                        Matr. {currentUser.matricula}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <GraduationCap className="h-4 w-4 text-black" />
+                      <span className="hidden sm:inline font-black truncate max-w-[130px]">
+                        {currentUser.name}
+                      </span>
+                      <span className="text-[10px] bg-black text-white px-1.5 py-0.5 rounded font-black sm:ml-1">
+                        Matr. {currentUser.matricula}
+                      </span>
+                    </>
+                  )}
+                </button>
+
+                <button
+                  onClick={handleLogout}
+                  className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-black border border-slate-300 text-xs font-bold transition flex items-center gap-1"
+                  title="Sair / Encerrar Sessão"
+                >
+                  <LogOut className="h-3.5 w-3.5" />
+                  <span className="hidden md:inline text-[11px]">Sair</span>
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowAuthModal(true)}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-black transition bg-black text-white hover:bg-slate-800 shadow-xs"
+                title="Acessar com matrícula de Aluno ou Professor"
+              >
+                <LogIn className="h-4 w-4" />
+                <span>Entrar (Login / Cadastro)</span>
+              </button>
+            )}
 
             {/* Quick Button to open Sistema de Aulas & PDFs */}
             <button
-              onClick={() => setActiveTab('estudos')}
+              onClick={() => {
+                if (!currentUser) {
+                  setShowAuthModal(true);
+                } else {
+                  setActiveTab('estudos');
+                }
+              }}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition shadow-xs ${
                 activeTab === 'estudos'
                   ? 'bg-black text-white'
@@ -292,7 +364,9 @@ export default function App() {
             isSpeaking={isSpeaking}
             cancelSpeak={cancelSpeak}
             userRole={userRole}
+            currentUser={currentUser}
             onRoleChange={handleSwitchRole}
+            onOpenLogin={() => setShowAuthModal(true)}
           />
         )}
 
@@ -319,6 +393,10 @@ export default function App() {
             stopListening={stopListening}
             clearTranscript={clearTranscript}
             settings={settings}
+            antiRepeatEnabled={antiRepeatEnabled}
+            setAntiRepeatEnabled={setAntiRepeatEnabled}
+            duplicatesCount={duplicatesCount}
+            optimizeTranscript={optimizeTranscript}
           />
         )}
 
@@ -335,12 +413,7 @@ export default function App() {
           <VLibrasWidget onSpeakText={speak} />
         )}
 
-        {/* Tab 5: Alerta visual */}
-        {activeTab === 'alerta' && (
-          <AlertaVisual settings={settings} />
-        )}
-
-        {/* Tab 6: Soluções de sistema */}
+        {/* Tab 5: Soluções de sistema */}
         {activeTab === 'solucoes' && (
           <SolucoesSistema />
         )}
@@ -391,159 +464,14 @@ export default function App() {
         />
       )}
 
-      {/* Portal Selection Modal (Separated Access for Aluno and Professor) */}
-      {showPortalModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/60 backdrop-blur-xs overflow-y-auto">
-          <div className="w-full max-w-2xl my-auto rounded-3xl bg-white border border-slate-300 shadow-2xl p-6 sm:p-8 text-black space-y-6 animate-in fade-in zoom-in-95">
-            {/* Header */}
-            <div className="flex items-start justify-between gap-4 pb-4 border-b border-slate-200">
-              <div>
-                <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-slate-100 text-black border border-slate-300">
-                  Acessos Separados
-                </span>
-                <h2 className="text-xl sm:text-2xl font-black text-black mt-1">
-                  Selecione o seu Acesso ao Sistema
-                </h2>
-                <p className="text-xs sm:text-sm text-slate-600 font-medium mt-1">
-                  Escolha o perfil apropriado. Cada ambiente possui ferramentas e permissões específicas.
-                </p>
-              </div>
-
-              <button
-                onClick={() => setShowPortalModal(false)}
-                className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-black border border-slate-300 text-xs font-bold transition"
-              >
-                Fechar
-              </button>
-            </div>
-
-            {/* Portal Cards Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Card 1: Acesso Aluno */}
-              <div 
-                onClick={() => handleSwitchRole('aluno')}
-                className={`p-5 rounded-2xl border-2 transition cursor-pointer flex flex-col justify-between space-y-4 hover:border-black ${
-                  userRole === 'aluno'
-                    ? 'border-black bg-slate-50 shadow-sm'
-                    : 'border-slate-200 bg-white'
-                }`}
-              >
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-black text-white font-black shadow-md">
-                      <GraduationCap className="h-7 w-7 text-white" />
-                    </div>
-                    {userRole === 'aluno' && (
-                      <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-black text-white flex items-center gap-1">
-                        <Check className="h-3 w-3" /> Ativo
-                      </span>
-                    )}
-                  </div>
-
-                  <div>
-                    <h3 className="text-base font-black text-black">
-                      🎓 Acesso do Aluno
-                    </h3>
-                    <p className="text-xs text-slate-600 mt-1">
-                      Área de estudo com videoaulas em MP3, tradução em Libras com o Boneco do VLibras e apostilas em PDF.
-                    </p>
-                  </div>
-
-                  <ul className="text-xs space-y-1.5 text-slate-700 font-medium">
-                    <li className="flex items-center gap-2">
-                      <Check className="h-3.5 w-3.5 text-black shrink-0" />
-                      <span>Ouvir videoaulas em áudio MP3</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <Check className="h-3.5 w-3.5 text-black shrink-0" />
-                      <span>Tradução 3D com Boneco do VLibras</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <Check className="h-3.5 w-3.5 text-black shrink-0" />
-                      <span>Download e visualização de PDFs</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <Check className="h-3.5 w-3.5 text-black shrink-0" />
-                      <span>Comunicação acessível integrada</span>
-                    </li>
-                  </ul>
-                </div>
-
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleSwitchRole('aluno');
-                  }}
-                  className="w-full py-2.5 rounded-xl bg-black hover:bg-slate-800 text-white text-xs font-black transition shadow-xs text-center"
-                >
-                  Entrar como Aluno
-                </button>
-              </div>
-
-              {/* Card 2: Acesso Professor */}
-              <div 
-                onClick={() => handleSwitchRole('professor')}
-                className={`p-5 rounded-2xl border-2 transition cursor-pointer flex flex-col justify-between space-y-4 hover:border-black ${
-                  userRole === 'professor'
-                    ? 'border-black bg-slate-50 shadow-sm'
-                    : 'border-slate-200 bg-white'
-                }`}
-              >
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-black text-white font-black shadow-md">
-                      <BookOpen className="h-7 w-7 text-white" />
-                    </div>
-                    {userRole === 'professor' && (
-                      <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-black text-white flex items-center gap-1">
-                        <Check className="h-3 w-3" /> Ativo
-                      </span>
-                    )}
-                  </div>
-
-                  <div>
-                    <h3 className="text-base font-black text-black">
-                      👨‍🏫 Acesso do Professor
-                    </h3>
-                    <p className="text-xs text-slate-600 mt-1">
-                      Painel docente para cadastro de aulas, upload de MP3, gravação no microfone e anexos de PDFs.
-                    </p>
-                  </div>
-
-                  <ul className="text-xs space-y-1.5 text-slate-700 font-medium">
-                    <li className="flex items-center gap-2">
-                      <Check className="h-3.5 w-3.5 text-black shrink-0" />
-                      <span>Cadastrar aulas e disciplinas</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <Check className="h-3.5 w-3.5 text-black shrink-0" />
-                      <span>Upload de MP3 e gravação ao vivo</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <Check className="h-3.5 w-3.5 text-black shrink-0" />
-                      <span>Testar tradução no Boneco VLibras</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <Check className="h-3.5 w-3.5 text-black shrink-0" />
-                      <span>Anexar e gerar apostilas em PDF</span>
-                    </li>
-                  </ul>
-                </div>
-
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleSwitchRole('professor');
-                  }}
-                  className="w-full py-2.5 rounded-xl bg-black hover:bg-slate-800 text-white text-xs font-black transition shadow-xs text-center"
-                >
-                  Entrar como Professor
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Auth Portal Modal (Login e Cadastro com Matrícula para Aluno e Professor) */}
+      <AuthPortalModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        onSuccessLogin={handleSuccessLogin}
+        initialRole={userRole}
+        allowClose={currentUser !== null}
+      />
     </div>
   );
 }

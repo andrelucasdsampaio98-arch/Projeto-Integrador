@@ -4,12 +4,21 @@ export type ActiveTab =
   | 'ouvir' 
   | 'frases' 
   | 'libras' 
-  | 'alerta' 
   | 'solucoes' 
   | 'rede' 
   | 'ajustes';
 
 export type UserRole = 'aluno' | 'professor';
+
+export interface UserAccount {
+  id: string;
+  name: string;
+  matricula: string;
+  role: UserRole;
+  email?: string;
+  turmaOuArea?: string;
+  createdAt: string;
+}
 
 export interface LessonPdfFile {
   id: string;
