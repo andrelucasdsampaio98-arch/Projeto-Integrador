@@ -105,7 +105,7 @@ export const AjustesModal: React.FC<AjustesModalProps> = ({
           </label>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {[
-              { id: 'azul-laranja', label: 'Azul Escuro com Laranja', bg: 'bg-[#081026]', text: 'text-orange-400', border: 'border-orange-500' },
+              { id: 'azul-laranja', label: 'Azul com Laranja (Padrão)', bg: 'bg-[#081026]', text: 'text-orange-400', border: 'border-orange-500' },
               { id: 'laranja-pastel', label: 'Laranja Pastel & Cinza', bg: 'bg-[#fff7ed]', text: 'text-stone-900', border: 'border-orange-400' },
               { id: 'preto-branco', label: 'Fundo Branco (Contraste)', bg: 'bg-white', text: 'text-black', border: 'border-slate-400' },
               { id: 'padrao', label: 'Cinza Suave Neutro', bg: 'bg-slate-50', text: 'text-slate-900', border: 'border-slate-300' },

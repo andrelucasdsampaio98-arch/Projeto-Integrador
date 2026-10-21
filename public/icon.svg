@@ -26,28 +26,36 @@
   <!-- Bridge Arch / Connection Arc -->
   <path d="M 120 340 C 180 230, 332 230, 392 340" fill="none" stroke="url(#accentGrad)" stroke-width="16" stroke-linecap="round" />
   
-  <!-- Friendly Robot Icon (Center Left) -->
+  <!-- Friendly Robot Icon (Center Left) - Novo Modelo -->
   <g transform="translate(130, 160) scale(1.05)" filter="url(#glow)">
     <!-- Antenna -->
-    <line x1="60" y1="20" x2="60" y2="35" stroke="#38bdf8" stroke-width="5" stroke-linecap="round" />
-    <circle cx="60" cy="15" r="7" fill="#38bdf8" />
-    <!-- Ears -->
-    <rect x="10" y="55" width="8" height="20" rx="4" fill="#0284c7" />
-    <rect x="102" y="55" width="8" height="20" rx="4" fill="#0284c7" />
-    <!-- Robot Head -->
-    <rect x="18" y="35" width="84" height="65" rx="18" fill="#38bdf8" />
-    <!-- Screen Face -->
-    <rect x="26" y="44" width="68" height="47" rx="12" fill="#0f172a" />
-    <!-- Eyes -->
-    <circle cx="44" cy="62" r="7" fill="#38bdf8" />
-    <circle cx="76" cy="62" r="7" fill="#38bdf8" />
-    <circle cx="46" cy="60" r="2.5" fill="#ffffff" />
-    <circle cx="78" cy="60" r="2.5" fill="#ffffff" />
-    <!-- Smile / Audio Grid -->
-    <line x1="48" y1="78" x2="72" y2="78" stroke="#34d399" stroke-width="4" stroke-linecap="round" />
-    <!-- Neck & Shoulders -->
-    <rect x="48" y="100" width="24" height="8" rx="2" fill="#0284c7" />
-    <path d="M 30 115 C 30 108, 90 108, 90 115 L 98 135 L 22 135 Z" fill="#0369a1" />
+    <line x1="60" y1="18" x2="60" y2="35" stroke="#94a3b8" stroke-width="4.5" stroke-linecap="round" />
+    <circle cx="60" cy="14" r="8" fill="#f97316" stroke="#ea580c" stroke-width="1.5" />
+    <circle cx="58" cy="12" r="2.5" fill="#ffffff" fill-opacity="0.8" />
+    <!-- Ears / Headphones -->
+    <rect x="8" y="52" width="10" height="24" rx="5" fill="#f97316" stroke="#c2410c" stroke-width="1.5" />
+    <circle cx="13" cy="64" r="2.5" fill="#fed7aa" />
+    <rect x="102" y="52" width="10" height="24" rx="5" fill="#f97316" stroke="#c2410c" stroke-width="1.5" />
+    <circle cx="107" cy="64" r="2.5" fill="#fed7aa" />
+    <!-- Robot Head (Rounded Helmet) -->
+    <rect x="18" y="34" width="84" height="68" rx="28" fill="#f8fafc" stroke="#94a3b8" stroke-width="2" />
+    <!-- Helmet Top Highlight -->
+    <path d="M 32 38 Q 60 34 88 38" stroke="#ffffff" stroke-width="3" stroke-linecap="round" />
+    <!-- Screen Face Visor -->
+    <rect x="25" y="44" width="70" height="48" rx="16" fill="#0b1329" stroke="#334155" stroke-width="1.5" />
+    <!-- Expressive Digital Eyes -->
+    <rect x="36" y="56" width="12" height="18" rx="6" fill="#38bdf8" />
+    <circle cx="40" cy="60" r="2.5" fill="#ffffff" />
+    <rect x="72" y="56" width="12" height="18" rx="6" fill="#38bdf8" />
+    <circle cx="76" cy="60" r="2.5" fill="#ffffff" />
+    <!-- Smile & Cheeks -->
+    <circle cx="32" cy="74" r="2.5" fill="#f97316" fill-opacity="0.8" />
+    <circle cx="88" cy="74" r="2.5" fill="#f97316" fill-opacity="0.8" />
+    <path d="M 52 76 Q 60 81 68 76" stroke="#38bdf8" stroke-width="3" stroke-linecap="round" fill="none" />
+    <!-- Neck & Tech Collar -->
+    <rect x="46" y="103" width="28" height="7" rx="3" fill="#475569" />
+    <path d="M 32 112 C 32 106, 88 106, 88 112 L 96 132 L 24 132 Z" fill="#1e293b" stroke="#f97316" stroke-width="1.5" />
+    <circle cx="60" cy="122" r="3.5" fill="#f97316" />
   </g>
 
   <!-- Speech / Sound Wave & Eye Symbol (Center Right) -->

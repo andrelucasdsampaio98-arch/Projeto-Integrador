@@ -193,8 +193,43 @@ export const AuthPortalModal: React.FC<AuthPortalModalProps> = ({
           )}
         </div>
 
-        {/* Role Switcher Tabs (Separated Aluno & Professor) */}
+        {/* Modo de Acesso: Já Tenho Cadastro e Primeiro Acesso (Posicionado ACIMA) */}
         <div className="grid grid-cols-2 gap-2 bg-stone-100 p-1.5 rounded-2xl border border-stone-300">
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('login');
+              setLoginError(null);
+            }}
+            className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs sm:text-sm font-black transition ${
+              activeTab === 'login'
+                ? 'bg-orange-300 text-stone-900 border border-orange-400/80 shadow-xs'
+                : 'text-stone-700 hover:text-stone-900 hover:bg-stone-200'
+            }`}
+          >
+            <LogIn className="h-4 w-4" />
+            <span>Já Tenho Cadastro</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('cadastro');
+              setRegError(null);
+            }}
+            className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs sm:text-sm font-black transition ${
+              activeTab === 'cadastro'
+                ? 'bg-orange-300 text-stone-900 border border-orange-400/80 shadow-xs'
+                : 'text-stone-700 hover:text-stone-900 hover:bg-stone-200'
+            }`}
+          >
+            <UserPlus className="h-4 w-4" />
+            <span>Primeiro Acesso</span>
+          </button>
+        </div>
+
+        {/* Seleção de Perfil: Acesso Aluno & Acesso do Professor (Abaixo de Já Tenho Cadastro / Primeiro Acesso) */}
+        <div className="flex items-center justify-center gap-2 border-b border-orange-200/80 pb-3">
           <button
             type="button"
             onClick={() => {
@@ -202,10 +237,10 @@ export const AuthPortalModal: React.FC<AuthPortalModalProps> = ({
               setLoginError(null);
               setRegError(null);
             }}
-            className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-black transition ${
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-black transition border ${
               activeRole === 'aluno'
-                ? 'bg-orange-300 text-stone-900 border border-orange-400/80 shadow-xs'
-                : 'text-stone-700 hover:text-stone-900 hover:bg-stone-200'
+                ? 'bg-orange-300 text-stone-900 border-orange-400 shadow-xs'
+                : 'text-stone-600 hover:text-stone-900 hover:bg-orange-50 border-transparent'
             }`}
           >
             <GraduationCap className="h-4 w-4" />
@@ -219,49 +254,14 @@ export const AuthPortalModal: React.FC<AuthPortalModalProps> = ({
               setLoginError(null);
               setRegError(null);
             }}
-            className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-black transition ${
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-black transition border ${
               activeRole === 'professor'
-                ? 'bg-orange-300 text-stone-900 border border-orange-400/80 shadow-xs'
-                : 'text-stone-700 hover:text-stone-900 hover:bg-stone-200'
+                ? 'bg-orange-300 text-stone-900 border-orange-400 shadow-xs'
+                : 'text-stone-600 hover:text-stone-900 hover:bg-orange-50 border-transparent'
             }`}
           >
             <BookOpen className="h-4 w-4" />
-            <span>Acesso Professor</span>
-          </button>
-        </div>
-
-        {/* Sub-tabs: Login vs Primeiro Acesso / Cadastro */}
-        <div className="flex items-center justify-center gap-2 border-b border-orange-200/80 pb-3">
-          <button
-            type="button"
-            onClick={() => {
-              setActiveTab('login');
-              setLoginError(null);
-            }}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-black transition border ${
-              activeTab === 'login'
-                ? 'bg-orange-300 text-stone-900 border-orange-400 shadow-xs'
-                : 'text-stone-600 hover:text-stone-900 hover:bg-orange-50 border-transparent'
-            }`}
-          >
-            <LogIn className="h-4 w-4" />
-            <span>Já Tenho Cadastro (Entrar)</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              setActiveTab('cadastro');
-              setRegError(null);
-            }}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-black transition border ${
-              activeTab === 'cadastro'
-                ? 'bg-orange-300 text-stone-900 border-orange-400 shadow-xs'
-                : 'text-stone-600 hover:text-stone-900 hover:bg-orange-50 border-transparent'
-            }`}
-          >
-            <UserPlus className="h-4 w-4" />
-            <span>Primeiro Acesso (Fazer Cadastro)</span>
+            <span>Acesso do Professor</span>
           </button>
         </div>
 

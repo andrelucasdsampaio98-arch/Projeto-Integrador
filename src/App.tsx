@@ -8,7 +8,6 @@ import {
   Volume2, 
   Mic, 
   MessageSquare, 
-  Bot, 
   Layers, 
   Wifi, 
   Sliders, 
@@ -42,6 +41,7 @@ import { SolucoesSistema } from './components/SolucoesSistema';
 import { AcessoPorIP } from './components/AcessoPorIP';
 import { AjustesModal } from './components/AjustesModal';
 import { PWAInstallButton } from './components/PWAInstallButton';
+import { RobotMascot } from './components/RobotMascot';
 
 const INITIAL_SETTINGS: AppSettings = {
   fontSize: 'normal',
@@ -114,14 +114,24 @@ export default function App() {
       const saved = localStorage.getItem('ponte_app_settings');
       if (saved) {
         const parsed = JSON.parse(saved);
-        // Default to azul-laranja for the user's latest request if previously on default
-        return { ...INITIAL_SETTINGS, ...parsed, contrastTheme: parsed.contrastTheme || 'azul-laranja' };
+        const updated: AppSettings = { ...INITIAL_SETTINGS, ...parsed, contrastTheme: 'azul-laranja' };
+        localStorage.setItem('ponte_app_settings', JSON.stringify(updated));
+        return updated;
       }
     } catch {
       // fallback
     }
-    return INITIAL_SETTINGS;
+    return { ...INITIAL_SETTINGS, contrastTheme: 'azul-laranja' };
   });
+
+  // Ensure azul-laranja is persisted on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('ponte_app_settings');
+      const parsed = saved ? JSON.parse(saved) : {};
+      localStorage.setItem('ponte_app_settings', JSON.stringify({ ...parsed, contrastTheme: 'azul-laranja' }));
+    } catch {}
+  }, []);
 
   // Apply theme & font to body classes and attributes
   useEffect(() => {
@@ -229,12 +239,12 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
           {/* Logo & Brand */}
           <div className="flex items-center gap-3">
-            <div className={`flex h-10 w-10 items-center justify-center rounded-2xl font-black shadow-sm ${
+            <div className={`flex h-10 w-10 items-center justify-center rounded-2xl shadow-sm transition-transform hover:scale-105 ${
               isDarkBlueOrange
-                ? 'bg-orange-500 text-slate-950 border border-orange-400'
-                : 'bg-orange-300 text-stone-900 border border-orange-400/50'
-            }`}>
-              <Bot className={`h-6 w-6 ${isDarkBlueOrange ? 'text-slate-950' : 'text-stone-900'}`} />
+                ? 'bg-[#0a1226] border border-orange-500/50 shadow-orange-500/10'
+                : 'bg-orange-100 border border-orange-300 shadow-orange-500/10'
+            }`} title="Mascote Ponte Comunica">
+              <RobotMascot className="h-7 w-7 drop-shadow-xs" />
             </div>
             <div>
               <div className="flex items-center gap-2">
