@@ -218,8 +218,8 @@ export const SolucoesSistema: React.FC = () => {
                 onClick={() => setSelectedCategory(cat.id)}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition border ${
                   selectedCategory === cat.id
-                    ? 'bg-black text-white border-black shadow-xs'
-                    : 'bg-slate-100 text-slate-800 border-slate-200 hover:bg-slate-200'
+                    ? 'bg-orange-300 text-stone-900 border-orange-400 font-black shadow-2xs'
+                    : 'bg-stone-100 text-stone-700 border-stone-200 hover:bg-orange-50 hover:text-stone-900'
                 }`}
               >
                 {cat.label}

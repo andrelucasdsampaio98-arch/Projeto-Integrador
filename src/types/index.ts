@@ -3,7 +3,6 @@ export type ActiveTab =
   | 'falar' 
   | 'ouvir' 
   | 'frases' 
-  | 'libras' 
   | 'solucoes' 
   | 'rede' 
   | 'ajustes';
@@ -59,7 +58,7 @@ export interface Lesson {
   tags: string[];
 }
 
-export type ContrastTheme = 'padrao' | 'amarelo-preto' | 'preto-branco' | 'azul-ciano';
+export type ContrastTheme = 'azul-laranja' | 'laranja-pastel' | 'padrao' | 'amarelo-preto' | 'preto-branco' | 'azul-ciano';
 
 export type FontSize = 'normal' | 'grande' | 'gigante';
 

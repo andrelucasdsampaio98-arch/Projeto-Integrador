@@ -30,7 +30,7 @@ export const AjustesModal: React.FC<AjustesModalProps> = ({
   const handleReset = () => {
     const defaultSettings: AppSettings = {
       fontSize: 'normal',
-      contrastTheme: 'preto-branco',
+      contrastTheme: 'azul-laranja',
       voiceRate: 1,
       voicePitch: 1,
       selectedVoiceURI: '',
@@ -52,8 +52,8 @@ export const AjustesModal: React.FC<AjustesModalProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between pb-4 border-b border-slate-200">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-black text-white">
-              <Sliders className="h-5 w-5 text-white" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-orange-300 text-stone-900 border border-orange-400/50 shadow-xs">
+              <Sliders className="h-5 w-5 text-stone-900" />
             </div>
             <div>
               <h2 className="text-lg font-black text-black">Ajustes & Acessibilidade</h2>
@@ -86,8 +86,8 @@ export const AjustesModal: React.FC<AjustesModalProps> = ({
                 onClick={() => updateSetting('fontSize', size.id as FontSize)}
                 className={`p-3 rounded-2xl border text-center transition flex flex-col items-center justify-center ${
                   settings.fontSize === size.id
-                    ? 'bg-black text-white border-black font-black shadow-md'
-                    : 'bg-slate-50 text-slate-800 border-slate-300 hover:border-black hover:bg-slate-100'
+                    ? 'bg-orange-300 text-stone-900 border-orange-400 font-black shadow-xs'
+                    : 'bg-slate-50 text-slate-800 border-slate-300 hover:border-orange-300 hover:bg-orange-50'
                 }`}
               >
                 <span className="text-lg font-black">{size.sample}</span>
@@ -101,12 +101,14 @@ export const AjustesModal: React.FC<AjustesModalProps> = ({
         <div className="space-y-2">
           <label className="text-xs font-bold uppercase tracking-wider text-black flex items-center gap-1.5">
             <Eye className="h-4 w-4" />
-            Temas de Alto Contraste
+            Temas de Cor e Contraste
           </label>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {[
-              { id: 'preto-branco', label: 'Fundo Branco (Letras Pretas)', bg: 'bg-white', text: 'text-black', border: 'border-black' },
-              { id: 'padrao', label: 'Branco Padrão', bg: 'bg-slate-50', text: 'text-slate-900', border: 'border-slate-400' },
+              { id: 'azul-laranja', label: 'Azul Escuro com Laranja', bg: 'bg-[#081026]', text: 'text-orange-400', border: 'border-orange-500' },
+              { id: 'laranja-pastel', label: 'Laranja Pastel & Cinza', bg: 'bg-[#fff7ed]', text: 'text-stone-900', border: 'border-orange-400' },
+              { id: 'preto-branco', label: 'Fundo Branco (Contraste)', bg: 'bg-white', text: 'text-black', border: 'border-slate-400' },
+              { id: 'padrao', label: 'Cinza Suave Neutro', bg: 'bg-slate-50', text: 'text-slate-900', border: 'border-slate-300' },
               { id: 'amarelo-preto', label: 'Amarelo no Preto', bg: 'bg-black', text: 'text-yellow-300', border: 'border-yellow-400' },
               { id: 'azul-ciano', label: 'Azul & Ciano', bg: 'bg-slate-900', text: 'text-cyan-300', border: 'border-cyan-500' },
             ].map((theme) => (
@@ -115,8 +117,8 @@ export const AjustesModal: React.FC<AjustesModalProps> = ({
                 onClick={() => updateSetting('contrastTheme', theme.id as ContrastTheme)}
                 className={`p-2.5 rounded-xl border-2 text-left transition flex flex-col justify-between ${
                   settings.contrastTheme === theme.id
-                    ? 'ring-2 ring-black border-black shadow-md'
-                    : 'border-slate-300 hover:border-slate-500'
+                    ? 'ring-2 ring-orange-400 border-orange-400 shadow-sm'
+                    : 'border-slate-300 hover:border-orange-300'
                 } ${theme.bg}`}
               >
                 <div className={`w-full h-4 rounded mb-2 ${theme.border} border`} />
@@ -215,7 +217,7 @@ export const AjustesModal: React.FC<AjustesModalProps> = ({
 
           <button
             onClick={onClose}
-            className="px-6 py-2.5 rounded-xl bg-black hover:bg-slate-800 text-white font-black text-xs transition shadow-md"
+            className="px-6 py-2.5 rounded-xl bg-orange-300 hover:bg-orange-400 text-stone-900 border border-orange-400 font-black text-xs transition shadow-xs"
           >
             Salvar e Concluir
           </button>

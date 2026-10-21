@@ -152,20 +152,20 @@ export const FrasesRapidas: React.FC<FrasesRapidasProps> = ({ speak, settings })
       <div className="rounded-3xl bg-white border border-slate-200 p-5 sm:p-7 shadow-xs space-y-5">
         <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-200">
           <div>
-            <h2 className="text-xl font-black text-black flex items-center gap-2">
+            <h2 className="text-xl font-black text-stone-900 flex items-center gap-2">
               Frases rápidas
-              <span className="text-xs px-2.5 py-0.5 rounded-full bg-slate-100 text-black font-extrabold border border-slate-300">
+              <span className="text-xs px-2.5 py-0.5 rounded-full bg-orange-100 text-orange-950 font-extrabold border border-orange-200">
                 Prancha CAA de 1 Toque
               </span>
             </h2>
-            <p className="text-xs text-slate-600 mt-0.5">
+            <p className="text-xs text-stone-600 mt-0.5">
               Toque em qualquer botão para o aparelho falar em voz alta instantaneamente. As frases de urgência estão em destaque vermelho.
             </p>
           </div>
 
           <button
             onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-black hover:bg-slate-800 text-white font-black text-xs transition shadow-sm"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-orange-300 hover:bg-orange-400 text-stone-900 border border-orange-400 font-black text-xs transition shadow-xs"
           >
             <Plus className="h-4 w-4" />
             Adicionar Frase
@@ -178,8 +178,8 @@ export const FrasesRapidas: React.FC<FrasesRapidasProps> = ({ speak, settings })
             onClick={() => setSelectedCategory('todos')}
             className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 border ${
               selectedCategory === 'todos'
-                ? 'bg-slate-900 text-white border-slate-900 shadow-sm'
-                : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200'
+                ? 'bg-orange-300 text-stone-900 border-orange-400 shadow-xs font-black'
+                : 'bg-stone-100 text-stone-700 border-stone-200 hover:bg-orange-50 hover:text-stone-900'
             }`}
           >
             Todas as Frases ({phrases.length})

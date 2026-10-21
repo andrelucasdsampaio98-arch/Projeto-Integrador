@@ -142,13 +142,13 @@ export const FalarPorMim: React.FC<FalarPorMimProps> = ({
       <div className="rounded-3xl bg-white border border-slate-200 p-5 sm:p-7 shadow-xs space-y-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-xl font-black text-black flex items-center gap-2">
+            <h2 className="text-xl font-black text-stone-900 flex items-center gap-2">
               Falar por mim
-              <span className="text-xs px-2.5 py-0.5 rounded-full bg-slate-100 text-black font-extrabold border border-slate-300">
+              <span className="text-xs px-2.5 py-0.5 rounded-full bg-orange-100 text-orange-950 font-extrabold border border-orange-200">
                 Síntese de Voz pt-BR
               </span>
             </h2>
-            <p className="text-xs text-slate-600 mt-0.5">
+            <p className="text-xs text-stone-600 mt-0.5">
               Digite o que deseja comunicar. O aparelho falará em voz alta e você pode exibir em tela cheia.
             </p>
           </div>
@@ -157,7 +157,7 @@ export const FalarPorMim: React.FC<FalarPorMimProps> = ({
             <button
               onClick={() => setIsFullscreen(true)}
               disabled={!text.trim()}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-black disabled:opacity-40 disabled:pointer-events-none text-xs font-bold transition border border-slate-300"
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-stone-100 hover:bg-orange-50 text-stone-800 disabled:opacity-40 disabled:pointer-events-none text-xs font-bold transition border border-stone-300"
             >
               <Maximize2 className="h-4 w-4" />
               Tela Cheia
@@ -166,7 +166,7 @@ export const FalarPorMim: React.FC<FalarPorMimProps> = ({
             {isSpeaking ? (
               <button
                 onClick={cancelSpeak}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-black transition shadow-sm"
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-black transition shadow-xs"
               >
                 <VolumeX className="h-4 w-4" />
                 Parar Voz
@@ -175,7 +175,7 @@ export const FalarPorMim: React.FC<FalarPorMimProps> = ({
               <button
                 onClick={() => handleSpeak(text)}
                 disabled={!text.trim()}
-                className="flex items-center gap-2 px-5 py-2 rounded-xl bg-black hover:bg-slate-800 text-white font-black text-xs transition shadow-sm disabled:opacity-40 disabled:pointer-events-none"
+                className="flex items-center gap-2 px-5 py-2 rounded-xl bg-orange-300 hover:bg-orange-400 text-stone-900 border border-orange-400 font-black text-xs transition shadow-xs disabled:opacity-40 disabled:pointer-events-none"
               >
                 <Volume2 className="h-4 w-4" />
                 Falar Agora

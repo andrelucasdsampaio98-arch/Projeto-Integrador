@@ -8,11 +8,10 @@ import {
   Volume2, 
   Mic, 
   MessageSquare, 
-  Hand, 
+  Bot, 
   Layers, 
   Wifi, 
   Sliders, 
-  Sparkles, 
   Info,
   CheckCircle2,
   ExternalLink,
@@ -39,7 +38,6 @@ import { SistemaEstudo } from './components/SistemaEstudo';
 import { FalarPorMim } from './components/FalarPorMim';
 import { OuvirLegendar } from './components/OuvirLegendar';
 import { FrasesRapidas } from './components/FrasesRapidas';
-import { VLibrasWidget } from './components/LibrasAvatar/VLibrasWidget';
 import { SolucoesSistema } from './components/SolucoesSistema';
 import { AcessoPorIP } from './components/AcessoPorIP';
 import { AjustesModal } from './components/AjustesModal';
@@ -47,7 +45,7 @@ import { PWAInstallButton } from './components/PWAInstallButton';
 
 const INITIAL_SETTINGS: AppSettings = {
   fontSize: 'normal',
-  contrastTheme: 'preto-branco',
+  contrastTheme: 'azul-laranja',
   voiceRate: 1.0,
   voicePitch: 1.0,
   selectedVoiceURI: '',
@@ -114,24 +112,46 @@ export default function App() {
   const [settings, setSettings] = useState<AppSettings>(() => {
     try {
       const saved = localStorage.getItem('ponte_app_settings');
-      if (saved) return { ...INITIAL_SETTINGS, ...JSON.parse(saved) };
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        // Default to azul-laranja for the user's latest request if previously on default
+        return { ...INITIAL_SETTINGS, ...parsed, contrastTheme: parsed.contrastTheme || 'azul-laranja' };
+      }
     } catch {
       // fallback
     }
     return INITIAL_SETTINGS;
   });
 
-  // Apply theme & font to body classes
+  // Apply theme & font to body classes and attributes
   useEffect(() => {
     if (typeof document !== 'undefined') {
       const body = document.body;
+      body.setAttribute('data-theme', settings.contrastTheme);
+      if (settings.contrastTheme === 'azul-laranja') {
+        body.style.backgroundColor = '#081026';
+        body.style.color = '#f1f5f9';
+      } else if (settings.contrastTheme === 'amarelo-preto') {
+        body.style.backgroundColor = '#000000';
+        body.style.color = '#fde047';
+      } else if (settings.contrastTheme === 'azul-ciano') {
+        body.style.backgroundColor = '#0f172a';
+        body.style.color = '#67e8f9';
+      } else if (settings.contrastTheme === 'preto-branco') {
+        body.style.backgroundColor = '#ffffff';
+        body.style.color = '#000000';
+      } else {
+        body.style.backgroundColor = '#f9f8f6';
+        body.style.color = '#292524';
+      }
+
       if (settings.accessibleFont) {
         body.classList.add('font-accessible');
       } else {
         body.classList.remove('font-accessible');
       }
     }
-  }, [settings.accessibleFont]);
+  }, [settings.contrastTheme, settings.accessibleFont]);
 
   // Speech Synthesis Hook
   const {
@@ -174,45 +194,66 @@ export default function App() {
     { id: 'falar', label: 'Falar por mim', icon: Volume2, color: 'text-cyan-400' },
     { id: 'ouvir', label: 'Ouvir e legendar', icon: Mic, color: 'text-emerald-400', badge: isListening ? 'Ouvindo' : undefined },
     { id: 'frases', label: 'Frases rápidas', icon: MessageSquare, color: 'text-purple-400' },
-    { id: 'libras', label: 'Libras 3D Gov', icon: Sparkles, color: 'text-blue-400' },
     { id: 'solucoes', label: 'Soluções de sistema', icon: Layers, color: 'text-blue-400' },
     { id: 'rede', label: 'Acesso por IP', icon: Wifi, color: 'text-sky-400' },
   ];
 
   // Dynamic contrast theme styling wrapper
+  const isDarkBlueOrange = settings.contrastTheme === 'azul-laranja';
+
   const getThemeWrapperClass = () => {
     switch (settings.contrastTheme) {
+      case 'azul-laranja':
+        return 'bg-[#081026] text-slate-100 min-h-screen theme-azul-laranja';
       case 'amarelo-preto':
         return 'bg-black text-yellow-300 min-h-screen';
       case 'azul-ciano':
         return 'bg-slate-900 text-cyan-100 min-h-screen';
-      case 'padrao':
       case 'preto-branco':
-      default:
         return 'bg-white text-black min-h-screen';
+      case 'laranja-pastel':
+      case 'padrao':
+      default:
+        return 'bg-[#f9f8f6] text-stone-800 min-h-screen';
     }
   };
 
   return (
-    <div className={getThemeWrapperClass()}>
+    <div className={getThemeWrapperClass()} data-theme={settings.contrastTheme}>
       {/* Top Header */}
-      <header className="sticky top-0 z-40 bg-white border-b border-slate-200 shadow-xs">
+      <header className={`sticky top-0 z-40 backdrop-blur-md shadow-xs ${
+        isDarkBlueOrange
+          ? 'bg-[#0d1938]/95 border-b border-orange-500/30'
+          : 'bg-[#f9f8f6]/95 border-b border-orange-200/80'
+      }`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
           {/* Logo & Brand */}
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-black text-white font-black shadow-md">
-              <Hand className="h-6 w-6 text-white" />
+            <div className={`flex h-10 w-10 items-center justify-center rounded-2xl font-black shadow-sm ${
+              isDarkBlueOrange
+                ? 'bg-orange-500 text-slate-950 border border-orange-400'
+                : 'bg-orange-300 text-stone-900 border border-orange-400/50'
+            }`}>
+              <Bot className={`h-6 w-6 ${isDarkBlueOrange ? 'text-slate-950' : 'text-stone-900'}`} />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-base sm:text-lg font-black tracking-tight text-black">
+                <h1 className={`text-base sm:text-lg font-black tracking-tight ${
+                  isDarkBlueOrange ? 'text-white' : 'text-stone-900'
+                }`}>
                   Ponte
                 </h1>
-                <span className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-100 text-black border border-slate-300">
+                <span className={`text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                  isDarkBlueOrange
+                    ? 'bg-orange-950/80 text-orange-400 border border-orange-500/50'
+                    : 'bg-orange-100 text-orange-950 border border-orange-200'
+                }`}>
                   Comunica Acessível
                 </span>
               </div>
-              <p className="text-[11px] text-slate-600 hidden sm:block font-medium">
+              <p className={`text-[11px] hidden sm:block font-medium ${
+                isDarkBlueOrange ? 'text-slate-400' : 'text-stone-600'
+              }`}>
                 Projeto Integrador &bull; Acessibilidade para Alunos Surdos e Mudos
               </p>
             </div>
@@ -227,28 +268,38 @@ export default function App() {
                   onClick={() => setShowAuthModal(true)}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black transition border shadow-xs ${
                     userRole === 'professor'
-                      ? 'bg-black text-white border-black'
-                      : 'bg-white hover:bg-slate-100 text-black border-slate-300'
+                      ? isDarkBlueOrange
+                        ? 'bg-orange-500 hover:bg-orange-600 text-slate-950 border-orange-400'
+                        : 'bg-orange-300 hover:bg-orange-400 text-stone-900 border-orange-400'
+                      : isDarkBlueOrange
+                        ? 'bg-[#101e42] hover:bg-[#162754] text-slate-100 border-[#1f3366]'
+                        : 'bg-stone-100 hover:bg-orange-100 text-stone-800 border-stone-300'
                   }`}
                   title={`Usuário logado: ${currentUser.name} (Matrícula: ${currentUser.matricula}). Clique para gerenciar conta.`}
                 >
                   {userRole === 'professor' ? (
                     <>
-                      <BookOpen className="h-4 w-4 text-white" />
+                      <BookOpen className={`h-4 w-4 ${isDarkBlueOrange ? 'text-slate-950' : 'text-stone-900'}`} />
                       <span className="hidden sm:inline font-black truncate max-w-[130px]">
                         {currentUser.name}
                       </span>
-                      <span className="text-[10px] bg-white text-black px-1.5 py-0.5 rounded font-black sm:ml-1">
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-black sm:ml-1 ${
+                        isDarkBlueOrange ? 'bg-slate-950 text-orange-400 border border-orange-500/40' : 'bg-stone-900 text-orange-200'
+                      }`}>
                         Matr. {currentUser.matricula}
                       </span>
                     </>
                   ) : (
                     <>
-                      <GraduationCap className="h-4 w-4 text-black" />
+                      <GraduationCap className={`h-4 w-4 ${isDarkBlueOrange ? 'text-orange-400' : 'text-stone-800'}`} />
                       <span className="hidden sm:inline font-black truncate max-w-[130px]">
                         {currentUser.name}
                       </span>
-                      <span className="text-[10px] bg-black text-white px-1.5 py-0.5 rounded font-black sm:ml-1">
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-black sm:ml-1 border ${
+                        isDarkBlueOrange
+                          ? 'bg-orange-500 text-slate-950 border-orange-400'
+                          : 'bg-orange-300 text-stone-900 border-orange-400/40'
+                      }`}>
                         Matr. {currentUser.matricula}
                       </span>
                     </>
@@ -257,7 +308,11 @@ export default function App() {
 
                 <button
                   onClick={handleLogout}
-                  className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-black border border-slate-300 text-xs font-bold transition flex items-center gap-1"
+                  className={`p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl border text-xs font-bold transition flex items-center gap-1 ${
+                    isDarkBlueOrange
+                      ? 'bg-[#101e42] hover:bg-[#162754] text-slate-300 hover:text-white border-[#1f3366]'
+                      : 'bg-stone-100 hover:bg-orange-100 text-stone-700 hover:text-stone-900 border-stone-300'
+                  }`}
                   title="Sair / Encerrar Sessão"
                 >
                   <LogOut className="h-3.5 w-3.5" />
@@ -267,7 +322,11 @@ export default function App() {
             ) : (
               <button
                 onClick={() => setShowAuthModal(true)}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-black transition bg-black text-white hover:bg-slate-800 shadow-xs"
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-black transition shadow-xs ${
+                  isDarkBlueOrange
+                    ? 'bg-orange-500 hover:bg-orange-600 text-slate-950 border border-orange-400'
+                    : 'bg-orange-300 hover:bg-orange-400 text-stone-900 border border-orange-400'
+                }`}
                 title="Acessar com matrícula de Aluno ou Professor"
               >
                 <LogIn className="h-4 w-4" />
@@ -286,8 +345,12 @@ export default function App() {
               }}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition shadow-xs ${
                 activeTab === 'estudos'
-                  ? 'bg-black text-white'
-                  : 'bg-slate-100 hover:bg-slate-200 text-black border border-slate-300'
+                  ? isDarkBlueOrange
+                    ? 'bg-orange-500 text-slate-950 border border-orange-400 font-black'
+                    : 'bg-orange-300 text-stone-900 border border-orange-400 font-black'
+                  : isDarkBlueOrange
+                    ? 'bg-[#101e42] hover:bg-[#162754] text-slate-200 border border-[#1f3366]'
+                    : 'bg-stone-100 hover:bg-orange-50 text-stone-800 border border-stone-300'
               }`}
               title="Acessar o Painel de Aulas"
             >
@@ -295,38 +358,27 @@ export default function App() {
               <span className="hidden sm:inline">Aulas & PDFs</span>
             </button>
 
-            {/* Quick Button to open the Government 3D Avatar (VLibras) */}
-            <button
-              onClick={() => {
-                const accessBtn = document.querySelector('[vw-access-button]') as HTMLElement;
-                if (accessBtn) {
-                  accessBtn.click();
-                } else {
-                  setActiveTab('libras');
-                }
-              }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-black border border-slate-300 text-xs font-bold transition shadow-xs"
-              title="Abrir Boneco 3D do Governo Federal (VLibras)"
-            >
-              <span className="text-sm">🇧🇷</span>
-              <span className="hidden sm:inline">Boneco 3D Gov</span>
-            </button>
-
             <PWAInstallButton />
 
             <button
               onClick={() => setShowSettings(true)}
-              className="p-2 sm:px-3 sm:py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-black border border-slate-300 text-xs font-bold flex items-center gap-1.5 transition"
+              className={`p-2 sm:px-3 sm:py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition ${
+                isDarkBlueOrange
+                  ? 'bg-[#101e42] hover:bg-[#162754] text-slate-200 border-[#1f3366]'
+                  : 'bg-stone-100 hover:bg-orange-50 text-stone-800 border-stone-300'
+              }`}
               title="Ajustes de Acessibilidade"
             >
-              <Sliders className="h-4 w-4 text-black" />
+              <Sliders className={`h-4 w-4 ${isDarkBlueOrange ? 'text-orange-400' : 'text-stone-800'}`} />
               <span className="hidden sm:inline">Ajustes</span>
             </button>
           </div>
         </div>
 
         {/* Desktop Navigation Tabs Bar */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 hidden md:flex items-center gap-1.5 overflow-x-auto py-2.5 border-t border-slate-100">
+        <div className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 hidden md:flex items-center gap-1.5 overflow-x-auto py-2.5 ${
+          isDarkBlueOrange ? 'border-t border-orange-500/20' : 'border-t border-orange-200/60'
+        }`}>
           {tabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -336,11 +388,15 @@ export default function App() {
                 onClick={() => setActiveTab(tab.id as ActiveTab)}
                 className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap border ${
                   isActive
-                    ? 'bg-black text-white border-black shadow-sm'
-                    : 'bg-white text-slate-800 border-slate-200 hover:text-black hover:bg-slate-100 hover:border-slate-300'
+                    ? isDarkBlueOrange
+                      ? 'bg-orange-500 text-slate-950 border-orange-400 shadow-md font-black'
+                      : 'bg-orange-300 text-stone-900 border-orange-400 shadow-xs font-black'
+                    : isDarkBlueOrange
+                      ? 'bg-[#101e42] text-slate-300 border-[#1f3366] hover:text-white hover:bg-[#162754] hover:border-orange-500/40'
+                      : 'bg-stone-100/90 text-stone-700 border-stone-200 hover:text-stone-900 hover:bg-orange-50 hover:border-orange-200'
                 }`}
               >
-                <Icon className={`h-4 w-4 ${isActive ? 'text-white' : 'text-slate-700'}`} />
+                <Icon className={`h-4 w-4 ${isActive ? 'text-slate-950' : isDarkBlueOrange ? 'text-orange-400' : 'text-stone-600'}`} />
                 <span>{tab.label}</span>
                 {tab.badge && (
                   <span className="relative flex h-2 w-2 ml-1">
@@ -408,12 +464,7 @@ export default function App() {
           />
         )}
 
-        {/* Tab 4: Libras com Boneco 3D do Governo Federal (VLibras) */}
-        {activeTab === 'libras' && (
-          <VLibrasWidget onSpeakText={speak} />
-        )}
-
-        {/* Tab 5: Soluções de sistema */}
+        {/* Tab 4: Soluções de sistema */}
         {activeTab === 'solucoes' && (
           <SolucoesSistema />
         )}
@@ -425,7 +476,11 @@ export default function App() {
       </main>
 
       {/* Mobile Bottom Navigation Bar */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-200 md:hidden flex items-center overflow-x-auto px-2 py-1.5 safe-area-bottom shadow-lg scrollbar-none gap-1">
+      <nav className={`fixed bottom-0 left-0 right-0 z-40 md:hidden flex items-center overflow-x-auto px-2 py-1.5 safe-area-bottom shadow-lg scrollbar-none gap-1 ${
+        isDarkBlueOrange
+          ? 'bg-[#0d1938] border-t border-orange-500/30'
+          : 'bg-[#f9f8f6] border-t border-orange-200'
+      }`}>
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -435,11 +490,19 @@ export default function App() {
               onClick={() => setActiveTab(tab.id as ActiveTab)}
               className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition min-w-[58px] shrink-0 relative ${
                 isActive
-                  ? 'text-black font-extrabold bg-slate-100 border border-slate-300'
-                  : 'text-slate-700 hover:text-black'
+                  ? isDarkBlueOrange
+                    ? 'text-orange-400 font-extrabold bg-orange-950/70 border border-orange-500/50'
+                    : 'text-stone-900 font-extrabold bg-orange-200 border border-orange-300'
+                  : isDarkBlueOrange
+                    ? 'text-slate-400 hover:text-white'
+                    : 'text-stone-600 hover:text-stone-900'
               }`}
             >
-              <Icon className={`h-4.5 w-4.5 ${isActive ? 'text-black' : 'text-slate-600'}`} />
+              <Icon className={`h-4.5 w-4.5 ${
+                isActive 
+                  ? isDarkBlueOrange ? 'text-orange-400' : 'text-stone-900' 
+                  : isDarkBlueOrange ? 'text-slate-400' : 'text-stone-500'
+              }`} />
               <span className="text-[10px] mt-0.5 truncate max-w-[62px]">
                 {tab.label.split(' ')[0]}
               </span>

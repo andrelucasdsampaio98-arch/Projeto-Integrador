@@ -319,22 +319,22 @@ export const SistemaEstudo: React.FC<SistemaEstudoProps> = ({
 
         {/* Dynamic Portal Environment Description */}
         {userRole === 'professor' ? (
-          <div className="p-4 sm:p-5 rounded-2xl bg-slate-50 border-2 border-slate-300 space-y-3">
+          <div className="p-4 sm:p-5 rounded-2xl bg-stone-50 border-2 border-stone-300 space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-black text-white font-black shrink-0 shadow-md">
-                  <BookOpen className="h-6 w-6 text-white" />
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-orange-300 text-stone-900 border border-orange-400/50 font-black shrink-0 shadow-xs">
+                  <BookOpen className="h-6 w-6 text-stone-900" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="text-sm sm:text-base font-black text-black">
+                    <h3 className="text-sm sm:text-base font-black text-stone-900">
                       Painel Pedagógico do Professor
                     </h3>
-                    <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-black text-white">
+                    <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-orange-300 text-stone-900 border border-orange-400">
                       Modo Gestão Ativo
                     </span>
                   </div>
-                  <p className="text-xs text-slate-600 font-medium">
+                  <p className="text-xs text-stone-600 font-medium">
                     Cadastre conteúdos com videoaulas em áudio MP3, apostilas em PDF e teste a tradução em Libras com o Boneco do VLibras.
                   </p>
                 </div>
@@ -347,7 +347,7 @@ export const SistemaEstudo: React.FC<SistemaEstudoProps> = ({
                     setEditingLesson(null);
                     setIsTeacherModalOpen(true);
                   }}
-                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-black hover:bg-slate-800 text-white text-xs font-black transition shadow-md"
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-orange-300 hover:bg-orange-400 text-stone-900 border border-orange-400 text-xs font-black transition shadow-xs"
                 >
                   <Plus className="h-4 w-4" />
                   <span>+ Cadastrar Nova Aula (PDFs & MP3)</span>
@@ -355,16 +355,16 @@ export const SistemaEstudo: React.FC<SistemaEstudoProps> = ({
 
                 <button
                   onClick={() => handleQuickTriggerVLibras('Testando tradução de aula no Boneco do VLibras')}
-                  className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-white hover:bg-slate-100 text-black border border-slate-300 text-xs font-bold transition shadow-xs"
+                  className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-white hover:bg-stone-100 text-stone-800 border border-stone-300 text-xs font-bold transition shadow-xs"
                   title="Abrir o Boneco do VLibras para testar tradução"
                 >
-                  <Bot className="h-4 w-4 text-black" />
+                  <Bot className="h-4 w-4 text-stone-900" />
                   <span>Testar Boneco VLibras</span>
                 </button>
 
                 <button
                   onClick={handleResetLessons}
-                  className="p-2.5 rounded-xl bg-white hover:bg-slate-100 text-black border border-slate-300 text-xs font-bold transition"
+                  className="p-2.5 rounded-xl bg-white hover:bg-stone-100 text-stone-800 border border-stone-300 text-xs font-bold transition"
                   title="Restaurar aulas modelo padrão com PDFs e MP3s"
                 >
                   <RotateCcw className="h-4 w-4" />
@@ -373,22 +373,22 @@ export const SistemaEstudo: React.FC<SistemaEstudoProps> = ({
             </div>
           </div>
         ) : (
-          <div className="p-4 sm:p-5 rounded-2xl bg-slate-50 border-2 border-slate-300 space-y-3">
+          <div className="p-4 sm:p-5 rounded-2xl bg-stone-50 border-2 border-stone-300 space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-black text-white font-black shrink-0 shadow-md">
-                  <GraduationCap className="h-6 w-6 text-white" />
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-orange-300 text-stone-900 border border-orange-400/50 font-black shrink-0 shadow-xs">
+                  <GraduationCap className="h-6 w-6 text-stone-900" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="text-sm sm:text-base font-black text-black">
+                    <h3 className="text-sm sm:text-base font-black text-stone-900">
                       Portal Exclusivo do Estudante
                     </h3>
-                    <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-black text-white">
+                    <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-orange-200 text-orange-950 border border-orange-300">
                       Modo Aluno
                     </span>
                   </div>
-                  <p className="text-xs text-slate-600 font-medium">
+                  <p className="text-xs text-stone-600 font-medium">
                     Acesse suas aulas, ouça as videoaulas em MP3 acompanhadas pelo Boneco 3D do VLibras e faça download dos materiais em PDF.
                   </p>
                 </div>
@@ -400,9 +400,9 @@ export const SistemaEstudo: React.FC<SistemaEstudoProps> = ({
                 <span className="font-black text-black">
                   {completedCount} de {totalLessons} concluídas
                 </span>
-                <div className="w-24 bg-slate-200 h-2 rounded-full overflow-hidden">
+                <div className="w-24 bg-stone-200 h-2 rounded-full overflow-hidden">
                   <div
-                    className="bg-black h-full rounded-full transition-all"
+                    className="bg-orange-400 h-full rounded-full transition-all"
                     style={{ width: `${totalLessons > 0 ? (completedCount / totalLessons) * 100 : 0}%` }}
                   />
                 </div>
@@ -477,13 +477,13 @@ export const SistemaEstudo: React.FC<SistemaEstudoProps> = ({
           </div>
 
           {/* Media Type Filter */}
-          <div className="flex items-center gap-1 bg-slate-50 p-1 rounded-xl border border-slate-200 self-start sm:self-auto">
+          <div className="flex items-center gap-1 bg-stone-100 p-1 rounded-xl border border-stone-200 self-start sm:self-auto">
             <button
               onClick={() => setSelectedMediaType('todos')}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
                 selectedMediaType === 'todos'
-                  ? 'bg-black text-white'
-                  : 'text-slate-700 hover:text-black'
+                  ? 'bg-orange-300 text-stone-900 border border-orange-400 font-black shadow-2xs'
+                  : 'text-stone-700 hover:text-stone-900 hover:bg-orange-50'
               }`}
             >
               Todos os Materiais
@@ -492,8 +492,8 @@ export const SistemaEstudo: React.FC<SistemaEstudoProps> = ({
               onClick={() => setSelectedMediaType('com-mp3')}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 ${
                 selectedMediaType === 'com-mp3'
-                  ? 'bg-black text-white'
-                  : 'text-slate-700 hover:text-black'
+                  ? 'bg-orange-300 text-stone-900 border border-orange-400 font-black shadow-2xs'
+                  : 'text-stone-700 hover:text-stone-900 hover:bg-orange-50'
               }`}
               title="Filtrar aulas com Videoaulas em MP3"
             >
@@ -504,8 +504,8 @@ export const SistemaEstudo: React.FC<SistemaEstudoProps> = ({
               onClick={() => setSelectedMediaType('com-pdf')}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 ${
                 selectedMediaType === 'com-pdf'
-                  ? 'bg-black text-white'
-                  : 'text-slate-700 hover:text-black'
+                  ? 'bg-orange-300 text-stone-900 border border-orange-400 font-black shadow-2xs'
+                  : 'text-stone-700 hover:text-stone-900 hover:bg-orange-50'
               }`}
               title="Filtrar aulas com Apostilas em PDF"
             >
@@ -515,13 +515,13 @@ export const SistemaEstudo: React.FC<SistemaEstudoProps> = ({
           </div>
 
           {/* Status Filter */}
-          <div className="flex items-center gap-1 bg-slate-50 p-1 rounded-xl border border-slate-200 self-start sm:self-auto">
+          <div className="flex items-center gap-1 bg-stone-100 p-1 rounded-xl border border-stone-200 self-start sm:self-auto">
             <button
               onClick={() => setSelectedStatus('todos')}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
                 selectedStatus === 'todos'
-                  ? 'bg-black text-white'
-                  : 'text-slate-700 hover:text-black'
+                  ? 'bg-orange-300 text-stone-900 border border-orange-400 font-black shadow-2xs'
+                  : 'text-stone-700 hover:text-stone-900 hover:bg-orange-50'
               }`}
             >
               Status: Todos
@@ -530,8 +530,8 @@ export const SistemaEstudo: React.FC<SistemaEstudoProps> = ({
               onClick={() => setSelectedStatus('pendentes')}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
                 selectedStatus === 'pendentes'
-                  ? 'bg-black text-white'
-                  : 'text-slate-700 hover:text-black'
+                  ? 'bg-orange-300 text-stone-900 border border-orange-400 font-black shadow-2xs'
+                  : 'text-stone-700 hover:text-stone-900 hover:bg-orange-50'
               }`}
             >
               A Estudar
@@ -540,8 +540,8 @@ export const SistemaEstudo: React.FC<SistemaEstudoProps> = ({
               onClick={() => setSelectedStatus('concluidas')}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
                 selectedStatus === 'concluidas'
-                  ? 'bg-black text-white'
-                  : 'text-slate-700 hover:text-black'
+                  ? 'bg-orange-300 text-stone-900 border border-orange-400 font-black shadow-2xs'
+                  : 'text-stone-700 hover:text-stone-900 hover:bg-orange-50'
               }`}
             >
               Concluídas
@@ -551,7 +551,7 @@ export const SistemaEstudo: React.FC<SistemaEstudoProps> = ({
 
         {/* Subject Category Tags */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 pt-1 text-xs">
-          <span className="text-slate-500 font-bold shrink-0 mr-1 flex items-center gap-1">
+          <span className="text-stone-500 font-bold shrink-0 mr-1 flex items-center gap-1">
             <Filter className="h-3.5 w-3.5" /> Matéria:
           </span>
           {availableSubjects.map((sub) => (
@@ -560,8 +560,8 @@ export const SistemaEstudo: React.FC<SistemaEstudoProps> = ({
               onClick={() => setSelectedSubject(sub)}
               className={`px-3 py-1.5 rounded-xl font-bold transition whitespace-nowrap border ${
                 selectedSubject === sub
-                  ? 'bg-black text-white border-black'
-                  : 'bg-white text-slate-800 border-slate-200 hover:bg-slate-100 hover:text-black'
+                  ? 'bg-orange-300 text-stone-900 border-orange-400 font-black shadow-2xs'
+                  : 'bg-white text-stone-800 border-stone-200 hover:bg-orange-50 hover:text-stone-900 hover:border-orange-200'
               }`}
             >
               {sub}
@@ -668,10 +668,10 @@ export const SistemaEstudo: React.FC<SistemaEstudoProps> = ({
 
                       <button
                         onClick={() => setActiveMp3Modal({ mp3, lessonTitle: lesson.title })}
-                        className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-black text-white hover:bg-slate-800 text-[11px] font-black shadow-2xs"
+                        className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-orange-300 text-stone-900 hover:bg-orange-400 text-[11px] font-black border border-orange-400/60 shadow-2xs"
                         title="Ouvir videoaula e traduzir com o Boneco do VLibras"
                       >
-                        <Play className="h-3 w-3 fill-white" />
+                        <Play className="h-3 w-3 fill-stone-900" />
                         <span>Ouvir</span>
                       </button>
                     </div>
@@ -741,7 +741,7 @@ export const SistemaEstudo: React.FC<SistemaEstudoProps> = ({
               <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
                 <button
                   onClick={() => setActiveDetailLesson(lesson)}
-                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-black hover:bg-slate-800 text-white text-xs font-bold transition shadow-xs"
+                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-orange-300 hover:bg-orange-400 text-stone-900 border border-orange-400/80 text-xs font-black transition shadow-xs"
                 >
                   <Eye className="h-3.5 w-3.5" />
                   <span>Abrir Aula & Estudo</span>

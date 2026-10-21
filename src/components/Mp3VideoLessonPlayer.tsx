@@ -159,19 +159,19 @@ export const Mp3VideoLessonPlayer: React.FC<Mp3VideoLessonPlayerProps> = ({
       {/* Header of the MP3 lesson */}
       <div className="flex flex-wrap items-start justify-between gap-3 pb-4 border-b border-slate-200">
         <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-black text-white font-black shadow-md">
-            <FileAudio className="h-6 w-6 text-white" />
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-orange-300 text-stone-900 font-black shadow-xs border border-orange-400/50">
+            <FileAudio className="h-6 w-6 text-stone-900" />
           </div>
           <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-black text-white">
+              <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-orange-200 text-orange-950 border border-orange-300">
                 Videoaula em MP3
               </span>
-              <span className="text-xs text-slate-500 font-semibold">
+              <span className="text-xs text-stone-500 font-semibold">
                 {mp3Lesson.fileName} &bull; {mp3Lesson.fileSizeFormatted}
               </span>
             </div>
-            <h3 className="text-base sm:text-lg font-black text-black mt-0.5">
+            <h3 className="text-base sm:text-lg font-black text-stone-900 mt-0.5">
               {mp3Lesson.title}
             </h3>
           </div>
@@ -180,12 +180,12 @@ export const Mp3VideoLessonPlayer: React.FC<Mp3VideoLessonPlayerProps> = ({
         {/* VLibras Primary Action Button */}
         <button
           onClick={() => triggerVLibrasAvatar()}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-black hover:bg-slate-800 text-white font-black text-xs sm:text-sm shadow-md transition transform active:scale-95"
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-orange-300 hover:bg-orange-400 text-stone-900 border border-orange-400 font-black text-xs sm:text-sm shadow-xs transition transform active:scale-95"
           title="Abrir o Boneco do VLibras e traduzir este áudio para Libras"
         >
-          <Bot className="h-4 w-4 text-white" />
+          <Bot className="h-4 w-4 text-stone-900" />
           <span>Traduzir com Boneco VLibras</span>
-          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-800 text-slate-200 border border-slate-700">
+          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-orange-100 text-stone-900 border border-orange-300">
             3D Gov.br
           </span>
         </button>
@@ -241,13 +241,13 @@ export const Mp3VideoLessonPlayer: React.FC<Mp3VideoLessonPlayerProps> = ({
           <div className="flex items-center gap-2">
             <button
               onClick={togglePlay}
-              className="flex h-11 w-11 items-center justify-center rounded-xl bg-black hover:bg-slate-800 text-white shadow-md transition active:scale-95"
+              className="flex h-11 w-11 items-center justify-center rounded-xl bg-orange-300 hover:bg-orange-400 text-stone-900 border border-orange-400 shadow-xs transition active:scale-95"
               title={isPlaying ? 'Pausar áudio' : 'Reproduzir videoaula'}
             >
               {isPlaying ? (
-                <Pause className="h-5 w-5 fill-white text-white" />
+                <Pause className="h-5 w-5 fill-stone-900 text-stone-900" />
               ) : (
-                <Play className="h-5 w-5 fill-white text-white ml-0.5" />
+                <Play className="h-5 w-5 fill-stone-900 text-stone-900 ml-0.5" />
               )}
             </button>
 

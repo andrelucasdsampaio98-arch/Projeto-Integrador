@@ -197,9 +197,9 @@ export const OuvirLegendar: React.FC<OuvirLegendarProps> = ({
               <button
                 onClick={startListening}
                 disabled={!isSupported}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-black hover:bg-slate-800 text-white font-black text-xs transition shadow-sm disabled:opacity-40 disabled:pointer-events-none"
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-orange-300 hover:bg-orange-400 text-stone-900 border border-orange-400 font-black text-xs transition shadow-xs disabled:opacity-40 disabled:pointer-events-none"
               >
-                <Mic className="h-4 w-4 fill-white" />
+                <Mic className="h-4 w-4 fill-stone-900" />
                 Começar a Ouvir
               </button>
             )}
@@ -208,24 +208,24 @@ export const OuvirLegendar: React.FC<OuvirLegendarProps> = ({
 
         {/* Live Audio Visualizer Bar */}
         {isListening && (
-          <div className="flex items-center justify-between bg-slate-50 border border-slate-300 rounded-2xl p-3 px-4 text-xs text-black">
+          <div className="flex items-center justify-between bg-stone-50 border border-stone-300 rounded-2xl p-3 px-4 text-xs text-stone-900">
             <div className="flex items-center gap-2">
               <span className="relative flex h-3 w-3">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-600"></span>
               </span>
-              <strong className="font-bold text-black">Microfone ativo:</strong>
+              <strong className="font-bold text-stone-900">Microfone ativo:</strong>
               <span className="hidden sm:inline">Captando fala em português com suavização anti-repetição...</span>
               <span className="sm:hidden">Ouvindo em tempo real...</span>
             </div>
 
             {/* Audio Waveform Animation Bars */}
             <div className="flex items-center gap-1 h-7">
-              <div className="w-1 bg-black rounded-full wave-bar-1" />
-              <div className="w-1 bg-black rounded-full wave-bar-2" />
-              <div className="w-1 bg-black rounded-full wave-bar-3" />
-              <div className="w-1 bg-black rounded-full wave-bar-4" />
-              <div className="w-1 bg-black rounded-full wave-bar-5" />
+              <div className="w-1 bg-orange-400 rounded-full wave-bar-1" />
+              <div className="w-1 bg-orange-400 rounded-full wave-bar-2" />
+              <div className="w-1 bg-orange-400 rounded-full wave-bar-3" />
+              <div className="w-1 bg-orange-400 rounded-full wave-bar-4" />
+              <div className="w-1 bg-orange-400 rounded-full wave-bar-5" />
             </div>
           </div>
         )}

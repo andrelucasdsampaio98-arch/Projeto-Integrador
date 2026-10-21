@@ -844,7 +844,7 @@ export const TeacherLessonModal: React.FC<TeacherLessonModalProps> = ({
             </button>
             <button
               type="submit"
-              className="px-6 py-2.5 rounded-xl bg-black hover:bg-slate-800 text-white text-sm font-black flex items-center gap-2 transition shadow-md"
+              className="px-6 py-2.5 rounded-xl bg-orange-300 hover:bg-orange-400 text-stone-900 border border-orange-400 text-sm font-black flex items-center gap-2 transition shadow-xs"
             >
               <Check className="h-4 w-4" />
               <span>{lessonToEdit ? 'Salvar Alterações' : 'Publicar Aula com PDFs e MP3'}</span>

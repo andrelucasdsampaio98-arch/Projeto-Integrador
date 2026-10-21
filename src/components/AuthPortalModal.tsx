@@ -194,7 +194,7 @@ export const AuthPortalModal: React.FC<AuthPortalModalProps> = ({
         </div>
 
         {/* Role Switcher Tabs (Separated Aluno & Professor) */}
-        <div className="grid grid-cols-2 gap-2 bg-slate-100 p-1.5 rounded-2xl border border-slate-300">
+        <div className="grid grid-cols-2 gap-2 bg-stone-100 p-1.5 rounded-2xl border border-stone-300">
           <button
             type="button"
             onClick={() => {
@@ -204,8 +204,8 @@ export const AuthPortalModal: React.FC<AuthPortalModalProps> = ({
             }}
             className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-black transition ${
               activeRole === 'aluno'
-                ? 'bg-black text-white shadow-sm'
-                : 'text-slate-700 hover:text-black hover:bg-slate-200'
+                ? 'bg-orange-300 text-stone-900 border border-orange-400/80 shadow-xs'
+                : 'text-stone-700 hover:text-stone-900 hover:bg-stone-200'
             }`}
           >
             <GraduationCap className="h-4 w-4" />
@@ -221,8 +221,8 @@ export const AuthPortalModal: React.FC<AuthPortalModalProps> = ({
             }}
             className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-black transition ${
               activeRole === 'professor'
-                ? 'bg-black text-white shadow-sm'
-                : 'text-slate-700 hover:text-black hover:bg-slate-200'
+                ? 'bg-orange-300 text-stone-900 border border-orange-400/80 shadow-xs'
+                : 'text-stone-700 hover:text-stone-900 hover:bg-stone-200'
             }`}
           >
             <BookOpen className="h-4 w-4" />
@@ -231,17 +231,17 @@ export const AuthPortalModal: React.FC<AuthPortalModalProps> = ({
         </div>
 
         {/* Sub-tabs: Login vs Primeiro Acesso / Cadastro */}
-        <div className="flex items-center justify-center gap-2 border-b border-slate-200 pb-3">
+        <div className="flex items-center justify-center gap-2 border-b border-orange-200/80 pb-3">
           <button
             type="button"
             onClick={() => {
               setActiveTab('login');
               setLoginError(null);
             }}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-black transition ${
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-black transition border ${
               activeTab === 'login'
-                ? 'bg-black text-white shadow-xs'
-                : 'text-slate-600 hover:text-black hover:bg-slate-100'
+                ? 'bg-orange-300 text-stone-900 border-orange-400 shadow-xs'
+                : 'text-stone-600 hover:text-stone-900 hover:bg-orange-50 border-transparent'
             }`}
           >
             <LogIn className="h-4 w-4" />
@@ -254,10 +254,10 @@ export const AuthPortalModal: React.FC<AuthPortalModalProps> = ({
               setActiveTab('cadastro');
               setRegError(null);
             }}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-black transition ${
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-black transition border ${
               activeTab === 'cadastro'
-                ? 'bg-black text-white shadow-xs'
-                : 'text-slate-600 hover:text-black hover:bg-slate-100'
+                ? 'bg-orange-300 text-stone-900 border-orange-400 shadow-xs'
+                : 'text-stone-600 hover:text-stone-900 hover:bg-orange-50 border-transparent'
             }`}
           >
             <UserPlus className="h-4 w-4" />
@@ -269,9 +269,9 @@ export const AuthPortalModal: React.FC<AuthPortalModalProps> = ({
         {activeTab === 'login' && (
           <form onSubmit={handleLoginSubmit} className="space-y-4">
             {/* Rule Callout Banner */}
-            <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-300 flex items-start gap-3">
-              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-black text-white shrink-0 mt-0.5">
-                <Key className="h-4 w-4 text-white" />
+            <div className="p-3.5 rounded-2xl bg-[#fff7ed] border border-orange-200 flex items-start gap-3">
+              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-orange-300 text-stone-900 border border-orange-400/50 shrink-0 mt-0.5">
+                <Key className="h-4 w-4 text-stone-900" />
               </div>
               <div className="text-xs space-y-1">
                 <span className="font-black text-black block">
@@ -356,7 +356,7 @@ export const AuthPortalModal: React.FC<AuthPortalModalProps> = ({
             {/* Submit Button */}
             <button
               type="submit"
-              className="w-full py-3 px-4 rounded-xl bg-black hover:bg-slate-800 text-white font-black text-sm flex items-center justify-center gap-2 transition shadow-md"
+              className="w-full py-3 px-4 rounded-xl bg-orange-300 hover:bg-orange-400 text-stone-900 border border-orange-400 font-black text-sm flex items-center justify-center gap-2 transition shadow-xs"
             >
               <LogIn className="h-4 w-4" />
               <span>Entrar no Sistema</span>
@@ -536,7 +536,7 @@ export const AuthPortalModal: React.FC<AuthPortalModalProps> = ({
             {/* Submit Register Button */}
             <button
               type="submit"
-              className="w-full py-3 px-4 rounded-xl bg-black hover:bg-slate-800 text-white font-black text-sm flex items-center justify-center gap-2 transition shadow-md"
+              className="w-full py-3 px-4 rounded-xl bg-orange-300 hover:bg-orange-400 text-stone-900 border border-orange-400 font-black text-sm flex items-center justify-center gap-2 transition shadow-xs"
             >
               <UserPlus className="h-4 w-4" />
               <span>Concluir Cadastro e Acessar Sistema</span>
