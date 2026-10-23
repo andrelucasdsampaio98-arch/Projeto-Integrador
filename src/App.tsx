@@ -243,23 +243,16 @@ export default function App() {
               isDarkBlueOrange
                 ? 'bg-[#0a1226] border border-orange-500/50 shadow-orange-500/10'
                 : 'bg-orange-100 border border-orange-300 shadow-orange-500/10'
-            }`} title="Mascote Ponte Comunica">
+            }`} title="Mascote Comunica Acessível">
               <RobotMascot className="h-7 w-7 drop-shadow-xs" />
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h1 className={`text-base sm:text-lg font-black tracking-tight ${
-                  isDarkBlueOrange ? 'text-white' : 'text-stone-900'
-                }`}>
-                  Ponte
-                </h1>
-                <span className={`text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full ${
-                  isDarkBlueOrange
-                    ? 'bg-orange-950/80 text-orange-400 border border-orange-500/50'
-                    : 'bg-orange-100 text-orange-950 border border-orange-200'
+                  isDarkBlueOrange ? 'text-orange-400' : 'text-orange-600'
                 }`}>
                   Comunica Acessível
-                </span>
+                </h1>
               </div>
               <p className={`text-[11px] hidden sm:block font-medium ${
                 isDarkBlueOrange ? 'text-slate-400' : 'text-stone-600'

@@ -19,7 +19,7 @@ export function RobotMascot({ className = 'h-7 w-7', size, glow = true }: RobotM
       xmlns="http://www.w3.org/2000/svg"
       className={className}
       style={size ? { width: size, height: size } : undefined}
-      aria-label="Mascote Robozinho da Ponte"
+      aria-label="Mascote Robozinho Comunica Acessível"
       role="img"
     >
       <defs>
