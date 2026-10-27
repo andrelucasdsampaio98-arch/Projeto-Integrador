@@ -1,5 +1,20 @@
 import React, { useState } from 'react';
-import { Volume2, VolumeX, Maximize2, Minimize2, RotateCcw, Copy, Check, Sparkles, Send, Trash2, ArrowUpRight, Smartphone } from 'lucide-react';
+import { 
+  Volume2, 
+  VolumeX, 
+  Maximize2, 
+  Minimize2, 
+  RotateCcw, 
+  Copy, 
+  Check, 
+  Sparkles, 
+  Send, 
+  Trash2, 
+  ArrowUpRight, 
+  Smartphone,
+  Sliders,
+  Bot
+} from 'lucide-react';
 import { AppSettings } from '../types';
 
 interface FalarPorMimProps {
@@ -7,6 +22,10 @@ interface FalarPorMimProps {
   isSpeaking: boolean;
   cancelSpeak: () => void;
   settings: AppSettings;
+  voices?: SpeechSynthesisVoice[];
+  selectedVoice?: SpeechSynthesisVoice | null;
+  onSelectVoice?: (voiceURI: string) => void;
+  onSelectChatGptPersona?: (persona: 'chatgpt-natural' | 'chatgpt-masculino') => void;
 }
 
 export const FalarPorMim: React.FC<FalarPorMimProps> = ({
@@ -14,6 +33,10 @@ export const FalarPorMim: React.FC<FalarPorMimProps> = ({
   isSpeaking,
   cancelSpeak,
   settings,
+  voices = [],
+  selectedVoice,
+  onSelectVoice,
+  onSelectChatGptPersona,
 }) => {
   const [text, setText] = useState('');
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -90,9 +113,9 @@ export const FalarPorMim: React.FC<FalarPorMimProps> = ({
 
               <button
                 onClick={() => handleSpeak(text)}
-                className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-black hover:bg-slate-800 text-white font-black text-xs transition shadow"
+                className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-orange-300 hover:bg-orange-400 text-stone-900 border border-orange-400 font-black text-xs transition shadow-xs"
               >
-                <Volume2 className="h-4 w-4 fill-white" />
+                <Volume2 className="h-4 w-4 fill-stone-900" />
                 Falar em Voz Alta
               </button>
 
@@ -145,11 +168,11 @@ export const FalarPorMim: React.FC<FalarPorMimProps> = ({
             <h2 className="text-xl font-black text-stone-900 flex items-center gap-2">
               Falar por mim
               <span className="text-xs px-2.5 py-0.5 rounded-full bg-orange-100 text-orange-950 font-extrabold border border-orange-200">
-                Síntese de Voz pt-BR
+                Voz Natural pt-BR
               </span>
             </h2>
             <p className="text-xs text-stone-600 mt-0.5">
-              Digite o que deseja comunicar. O aparelho falará em voz alta e você pode exibir em tela cheia.
+              Digite o que deseja comunicar. O aparelho falará com voz natural e expressiva e você pode exibir em tela cheia.
             </p>
           </div>
 
@@ -181,6 +204,62 @@ export const FalarPorMim: React.FC<FalarPorMimProps> = ({
                 Falar Agora
               </button>
             )}
+          </div>
+        </div>
+
+        {/* VOICE PERSONA BAR - ESTILO CHATGPT */}
+        <div className="p-3 sm:p-4 rounded-2xl bg-orange-50/90 border border-orange-200 flex flex-wrap items-center justify-between gap-3 text-xs shadow-2xs">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-300 text-stone-900 font-black border border-orange-400/80 shrink-0 shadow-xs">
+              <Sparkles className="h-5 w-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-black text-stone-950 text-sm">Voz Estilo ChatGPT:</span>
+                <span className="text-[11px] font-extrabold bg-orange-200 text-stone-900 px-2.5 py-0.5 rounded-full border border-orange-300">
+                  {selectedVoice ? selectedVoice.name : 'Voz Neural Natural pt-BR'}
+                </span>
+                <span className="text-[10px] font-black uppercase tracking-wider bg-black text-white px-2 py-0.5 rounded">
+                  {settings.voiceRate ? settings.voiceRate.toFixed(2) : '1.05'}x Fluida
+                </span>
+              </div>
+              <p className="text-[11px] text-stone-600 font-medium mt-0.5">
+                Entonação humana e conversacional calibrada com timbres neurais modernos de alta fidelidade.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            {onSelectChatGptPersona && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => onSelectChatGptPersona('chatgpt-natural')}
+                  className="px-3 py-1.5 rounded-xl bg-white hover:bg-orange-100 text-stone-900 border border-orange-300 text-xs font-bold transition shadow-2xs"
+                  title="Voz natural feminina estilo ChatGPT (Francisca / Google Neural)"
+                >
+                  Feminina (Francisca)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onSelectChatGptPersona('chatgpt-masculino')}
+                  className="px-3 py-1.5 rounded-xl bg-white hover:bg-orange-100 text-stone-900 border border-orange-300 text-xs font-bold transition shadow-2xs"
+                  title="Voz natural masculina estilo ChatGPT (Antonio / Felipe)"
+                >
+                  Masculina (Antonio)
+                </button>
+              </>
+            )}
+
+            <button
+              type="button"
+              onClick={() => speak('Olá! Esta é a voz configurada no estilo ChatGPT para falar por mim com máxima clareza e naturalidade.')}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-orange-300 hover:bg-orange-400 text-stone-900 font-black text-xs transition border border-orange-400 shadow-2xs"
+              title="Testar a pronúncia da voz agora"
+            >
+              <Volume2 className="h-3.5 w-3.5" />
+              <span>Testar Voz</span>
+            </button>
           </div>
         </div>
 
@@ -227,67 +306,60 @@ export const FalarPorMim: React.FC<FalarPorMimProps> = ({
                   setText(chip);
                   handleSpeak(chip);
                 }}
-                className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-blue-50 border border-slate-200 hover:border-blue-300 text-slate-800 hover:text-blue-700 text-xs font-semibold transition"
+                className="px-3 py-1.5 rounded-xl bg-stone-100 hover:bg-orange-100 text-stone-800 hover:text-stone-950 text-xs font-bold transition border border-stone-300 hover:border-orange-300 flex items-center gap-1 shadow-2xs"
               >
-                {chip}
+                <span>{chip}</span>
+                <Volume2 className="h-3 w-3 text-stone-500" />
               </button>
             ))}
           </div>
         </div>
 
-        {/* Spoken History */}
-        <div className="pt-3 border-t border-slate-200">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-600">
-              Histórico de Mensagens Faladas
-            </span>
-            {history.length > 0 && (
+        {/* History of recent spoken phrases */}
+        {history.length > 0 && (
+          <div className="pt-4 border-t border-slate-200">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-600">
+                Histórico de falas recentes:
+              </span>
               <button
                 onClick={() => setHistory([])}
-                className="text-xs text-slate-500 hover:text-rose-600 flex items-center gap-1 transition font-medium"
+                className="text-[11px] text-slate-500 hover:text-rose-600 font-bold transition"
               >
-                <Trash2 className="h-3 w-3" /> Limpar histórico
+                Limpar histórico
               </button>
-            )}
-          </div>
+            </div>
 
-          <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-            {history.map((phrase, idx) => (
-              <div
-                key={idx}
-                className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200 hover:border-slate-300 text-xs transition"
-              >
-                <span className="text-slate-900 font-semibold truncate flex-1 pr-3">{phrase}</span>
-                <div className="flex items-center gap-1 shrink-0">
-                  <button
-                    onClick={() => handleSpeak(phrase)}
-                    title="Falar esta frase"
-                    className="p-1.5 rounded-lg bg-white hover:bg-blue-600 text-slate-700 hover:text-white border border-slate-200 transition shadow-xs"
-                  >
-                    <Volume2 className="h-3.5 w-3.5" />
-                  </button>
-                  <button
-                    onClick={() => {
-                      setText(phrase);
-                      setIsFullscreen(true);
-                    }}
-                    title="Exibir em tela cheia"
-                    className="p-1.5 rounded-lg bg-white hover:bg-slate-200 text-slate-700 border border-slate-200 transition shadow-xs"
-                  >
-                    <Maximize2 className="h-3.5 w-3.5" />
-                  </button>
-                  <button
-                    onClick={() => handleCopy(phrase)}
-                    title="Copiar texto"
-                    className="p-1.5 rounded-lg bg-white hover:bg-slate-200 text-slate-700 border border-slate-200 transition shadow-xs"
-                  >
-                    {copied ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
-                  </button>
+            <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+              {history.map((phrase, idx) => (
+                <div
+                  key={idx}
+                  className="flex items-center justify-between gap-3 p-3 rounded-xl bg-slate-50 hover:bg-slate-100 transition border border-slate-200 text-xs"
+                >
+                  <span className="text-black font-semibold truncate flex-1">
+                    {phrase}
+                  </span>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      onClick={() => handleSpeak(phrase)}
+                      className="p-1.5 rounded-lg bg-orange-300 hover:bg-orange-400 text-stone-900 border border-orange-400 transition"
+                      title="Falar novamente"
+                    >
+                      <Volume2 className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      onClick={() => handleCopy(phrase)}
+                      className="p-1.5 rounded-lg bg-white hover:bg-slate-200 text-slate-700 transition border border-slate-300"
+                      title="Copiar texto"
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

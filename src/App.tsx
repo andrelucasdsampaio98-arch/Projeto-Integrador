@@ -46,8 +46,8 @@ import { RobotMascot } from './components/RobotMascot';
 const INITIAL_SETTINGS: AppSettings = {
   fontSize: 'normal',
   contrastTheme: 'azul-laranja',
-  voiceRate: 1.0,
-  voicePitch: 1.0,
+  voiceRate: 1.05,
+  voicePitch: 1.02,
   selectedVoiceURI: '',
   vibrationEnabled: true,
   accessibleFont: false,
@@ -167,12 +167,27 @@ export default function App() {
   const {
     isSupported: isTtsSupported,
     isSpeaking,
+    voices,
+    selectedVoice,
+    setChatGptPersona,
     speak,
     cancel: cancelSpeak,
   } = useSpeechSynthesis({
     rate: settings.voiceRate,
     pitch: settings.voicePitch,
     voiceURI: settings.selectedVoiceURI,
+    onVoiceAutoSelect: (uri) => {
+      setSettings((prev) => {
+        if (!prev.selectedVoiceURI) {
+          const updated = { ...prev, selectedVoiceURI: uri };
+          try {
+            localStorage.setItem('ponte_app_settings', JSON.stringify(updated));
+          } catch {}
+          return updated;
+        }
+        return prev;
+      });
+    },
   });
 
   // Speech Recognition Hook
@@ -438,6 +453,34 @@ export default function App() {
             isSpeaking={isSpeaking}
             cancelSpeak={cancelSpeak}
             settings={settings}
+            voices={voices}
+            selectedVoice={selectedVoice}
+            onSelectVoice={(uri) => {
+              setSettings((prev) => {
+                const updated = { ...prev, selectedVoiceURI: uri };
+                try {
+                  localStorage.setItem('ponte_app_settings', JSON.stringify(updated));
+                } catch {}
+                return updated;
+              });
+            }}
+            onSelectChatGptPersona={(persona) => {
+              const voice = setChatGptPersona(persona);
+              if (voice) {
+                setSettings((prev) => {
+                  const updated = {
+                    ...prev,
+                    selectedVoiceURI: voice.voiceURI,
+                    voiceRate: 1.05,
+                    voicePitch: persona === 'chatgpt-natural' ? 1.02 : 1.0,
+                  };
+                  try {
+                    localStorage.setItem('ponte_app_settings', JSON.stringify(updated));
+                  } catch {}
+                  return updated;
+                });
+              }
+            }}
           />
         )}
 
@@ -532,6 +575,25 @@ export default function App() {
           setSettings={setSettings}
           speak={speak}
           onClose={() => setShowSettings(false)}
+          voices={voices}
+          selectedVoice={selectedVoice}
+          onSelectChatGptPersona={(persona) => {
+            const voice = setChatGptPersona(persona);
+            if (voice) {
+              setSettings((prev) => {
+                const updated = {
+                  ...prev,
+                  selectedVoiceURI: voice.voiceURI,
+                  voiceRate: 1.05,
+                  voicePitch: persona === 'chatgpt-natural' ? 1.02 : 1.0,
+                };
+                try {
+                  localStorage.setItem('ponte_app_settings', JSON.stringify(updated));
+                } catch {}
+                return updated;
+              });
+            }
+          }}
         />
       )}
 

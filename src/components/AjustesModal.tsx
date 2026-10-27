@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sliders, Volume2, Type, Eye, Smartphone, RotateCcw, Check, Sparkles, X } from 'lucide-react';
+import { Sliders, Volume2, Type, Eye, Smartphone, RotateCcw, Check, Sparkles, X, Bot } from 'lucide-react';
 import { AppSettings, FontSize, ContrastTheme } from '../types';
 
 interface AjustesModalProps {
@@ -7,6 +7,9 @@ interface AjustesModalProps {
   setSettings: React.Dispatch<React.SetStateAction<AppSettings>>;
   speak: (text: string) => void;
   onClose: () => void;
+  voices?: SpeechSynthesisVoice[];
+  selectedVoice?: SpeechSynthesisVoice | null;
+  onSelectChatGptPersona?: (persona: 'chatgpt-natural' | 'chatgpt-masculino') => void;
 }
 
 export const AjustesModal: React.FC<AjustesModalProps> = ({
@@ -14,6 +17,9 @@ export const AjustesModal: React.FC<AjustesModalProps> = ({
   setSettings,
   speak,
   onClose,
+  voices = [],
+  selectedVoice,
+  onSelectChatGptPersona,
 }) => {
   const updateSetting = <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => {
     setSettings((prev) => {
@@ -31,8 +37,8 @@ export const AjustesModal: React.FC<AjustesModalProps> = ({
     const defaultSettings: AppSettings = {
       fontSize: 'normal',
       contrastTheme: 'azul-laranja',
-      voiceRate: 1,
-      voicePitch: 1,
+      voiceRate: 1.05,
+      voicePitch: 1.02,
       selectedVoiceURI: '',
       vibrationEnabled: true,
       accessibleFont: false,
@@ -46,47 +52,51 @@ export const AjustesModal: React.FC<AjustesModalProps> = ({
     }
   };
 
+  const ptVoices = voices.filter(
+    (v) => v.lang === 'pt-BR' || v.lang.startsWith('pt') || v.name.toLowerCase().includes('portuguese')
+  );
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
-      <div className="w-full max-w-xl rounded-3xl bg-white border-2 border-slate-300 p-6 sm:p-8 shadow-2xl space-y-6 my-auto text-black">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+      <div className="w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-3xl bg-white border border-slate-300 shadow-2xl p-6 sm:p-8 text-black space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between pb-4 border-b border-slate-200">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-orange-300 text-stone-900 border border-orange-400/50 shadow-xs">
-              <Sliders className="h-5 w-5 text-stone-900" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-orange-300 text-stone-900 border border-orange-400 font-black shadow-xs">
+              <Sliders className="h-5 w-5" />
             </div>
             <div>
-              <h2 className="text-lg font-black text-black">Ajustes & Acessibilidade</h2>
-              <p className="text-xs text-slate-600 font-medium">Personalize para sua necessidade visual e auditiva</p>
+              <h2 className="text-xl font-black text-black">Ajustes & Acessibilidade</h2>
+              <p className="text-xs text-slate-600">Personalize a voz estilo ChatGPT, contraste e visualização</p>
             </div>
           </div>
-
           <button
             onClick={onClose}
-            className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-black transition border border-slate-200"
+            className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-black border border-slate-300 text-xs font-bold transition"
+            title="Fechar"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        {/* Setting 1: Tamanho da Letra */}
+        {/* Setting 1: Tamanho da Fonte */}
         <div className="space-y-2">
           <label className="text-xs font-bold uppercase tracking-wider text-black flex items-center gap-1.5">
             <Type className="h-4 w-4" />
-            Tamanho da Letra do Aplicativo
+            Tamanho das Letras da Legenda
           </label>
           <div className="grid grid-cols-3 gap-2">
             {[
-              { id: 'normal', label: 'Normal', sample: 'Aa' },
-              { id: 'grande', label: 'Grande', sample: 'Aa+' },
-              { id: 'gigante', label: 'Gigante', sample: 'Aa++' },
+              { id: 'normal', label: 'Normal (100%)', sample: 'Aa' },
+              { id: 'grande', label: 'Grande (140%)', sample: 'Aa' },
+              { id: 'gigante', label: 'Gigante (180%)', sample: 'Aa' },
             ].map((size) => (
               <button
                 key={size.id}
                 onClick={() => updateSetting('fontSize', size.id as FontSize)}
-                className={`p-3 rounded-2xl border text-center transition flex flex-col items-center justify-center ${
+                className={`p-3 rounded-2xl border-2 text-center transition flex flex-col items-center gap-1 ${
                   settings.fontSize === size.id
-                    ? 'bg-orange-300 text-stone-900 border-orange-400 font-black shadow-xs'
+                    ? 'bg-orange-100 text-stone-900 border-orange-400 ring-2 ring-orange-400 shadow-xs'
                     : 'bg-slate-50 text-slate-800 border-slate-300 hover:border-orange-300 hover:bg-orange-50'
                 }`}
               >
@@ -128,7 +138,113 @@ export const AjustesModal: React.FC<AjustesModalProps> = ({
           </div>
         </div>
 
-        {/* Setting 3: Tipografia Inclusiva (Atkinson Hyperlegible) */}
+        {/* Setting 3: VOZ ESTILO CHATGPT */}
+        <div className="space-y-3 p-4 rounded-2xl bg-orange-50 border border-orange-300">
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-black uppercase tracking-wider text-stone-950 flex items-center gap-1.5">
+              <Sparkles className="h-4 w-4 text-orange-600" />
+              Configuração de Voz Estilo ChatGPT
+            </label>
+            <span className="text-[11px] font-black text-orange-950 bg-orange-200 px-2.5 py-0.5 rounded-full border border-orange-300">
+              Voz Neural Humana
+            </span>
+          </div>
+
+          <p className="text-xs text-stone-700 leading-relaxed">
+            Utiliza vozes neurais de alta fidelidade com cadência fluida (1.05x) e tom caloroso, idêntica à síntese conversacional do ChatGPT.
+          </p>
+
+          {/* Quick Persona Buttons */}
+          <div className="grid grid-cols-2 gap-2 pt-1">
+            <button
+              type="button"
+              onClick={() => {
+                if (onSelectChatGptPersona) onSelectChatGptPersona('chatgpt-natural');
+                updateSetting('voiceRate', 1.05);
+                updateSetting('voicePitch', 1.02);
+              }}
+              className="p-2.5 rounded-xl bg-white hover:bg-orange-100 border border-orange-300 text-left transition shadow-2xs"
+            >
+              <strong className="block text-xs font-black text-stone-950">Voz Feminina (Francisca)</strong>
+              <span className="text-[11px] text-stone-600">Fluida, suave e expressiva</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                if (onSelectChatGptPersona) onSelectChatGptPersona('chatgpt-masculino');
+                updateSetting('voiceRate', 1.05);
+                updateSetting('voicePitch', 1.0);
+              }}
+              className="p-2.5 rounded-xl bg-white hover:bg-orange-100 border border-orange-300 text-left transition shadow-2xs"
+            >
+              <strong className="block text-xs font-black text-stone-950">Voz Masculina (Antonio)</strong>
+              <span className="text-[11px] text-stone-600">Clara, articulada e amigável</span>
+            </button>
+          </div>
+
+          {/* Voice Dropdown if multiple voices available */}
+          {ptVoices.length > 0 && (
+            <div className="space-y-1 pt-1">
+              <label className="text-[11px] font-bold text-stone-800 block">
+                Selecionar Voz Instalada no Dispositivo:
+              </label>
+              <select
+                value={settings.selectedVoiceURI || (selectedVoice?.voiceURI ?? '')}
+                onChange={(e) => updateSetting('selectedVoiceURI', e.target.value)}
+                className="w-full text-xs font-semibold p-2.5 rounded-xl bg-white border border-orange-300 text-black focus:outline-none focus:ring-2 focus:ring-orange-400"
+              >
+                {ptVoices.map((v) => (
+                  <option key={v.voiceURI} value={v.voiceURI}>
+                    {v.name} ({v.lang})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Voice Speed Slider */}
+          <div className="space-y-1.5 pt-2 border-t border-orange-200">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-stone-800">
+                Velocidade da Voz: {settings.voiceRate.toFixed(2)}x
+              </span>
+              <span className="text-[10px] text-stone-500 font-semibold">
+                (ChatGPT Padrão: 1.05x)
+              </span>
+            </div>
+            <input
+              type="range"
+              min="0.7"
+              max="1.5"
+              step="0.05"
+              value={settings.voiceRate}
+              onChange={(e) => updateSetting('voiceRate', parseFloat(e.target.value))}
+              className="w-full accent-orange-600 cursor-pointer"
+            />
+          </div>
+
+          <div className="flex items-center justify-between pt-1">
+            <button
+              onClick={() => {
+                updateSetting('voiceRate', 1.05);
+                updateSetting('voicePitch', 1.02);
+              }}
+              className="text-[11px] text-orange-950 underline font-bold"
+            >
+              Redefinir para 1.05x (ChatGPT)
+            </button>
+
+            <button
+              onClick={() => speak('Olá! Esta é a voz configurada no estilo ChatGPT para falar por mim com máxima clareza e naturalidade.')}
+              className="text-xs text-stone-900 bg-orange-300 hover:bg-orange-400 font-black flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-orange-400 shadow-2xs transition"
+            >
+              <Volume2 className="h-3.5 w-3.5" /> Testar Voz Agora
+            </button>
+          </div>
+        </div>
+
+        {/* Setting 4: Tipografia Inclusiva (Atkinson Hyperlegible) */}
         <div className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 border border-slate-300">
           <div>
             <strong className="text-xs font-black text-black block">Fonte Atkinson Hyperlegible</strong>
@@ -148,40 +264,6 @@ export const AjustesModal: React.FC<AjustesModalProps> = ({
               }`}
             />
           </button>
-        </div>
-
-        {/* Setting 4: Velocidade e Tom da Síntese de Voz */}
-        <div className="space-y-3 p-4 rounded-2xl bg-slate-50 border border-slate-300">
-          <div className="flex items-center justify-between">
-            <label className="text-xs font-bold uppercase tracking-wider text-black flex items-center gap-1.5">
-              <Volume2 className="h-4 w-4" />
-              Velocidade da Voz em Português
-            </label>
-            <span className="text-xs font-mono font-bold text-black bg-white px-2 py-0.5 rounded border border-slate-300">
-              {settings.voiceRate.toFixed(1)}x
-            </span>
-          </div>
-
-          <input
-            type="range"
-            min="0.5"
-            max="1.5"
-            step="0.1"
-            value={settings.voiceRate}
-            onChange={(e) => updateSetting('voiceRate', parseFloat(e.target.value))}
-            className="w-full accent-black cursor-pointer"
-          />
-
-          <div className="flex items-center justify-between pt-1">
-            <span className="text-[10px] text-slate-600 font-bold">0.5x (Mais Lenta)</span>
-            <button
-              onClick={() => speak('Teste de voz do aplicativo Ponte para o laboratório.')}
-              className="text-xs text-black hover:bg-slate-200 font-bold flex items-center gap-1 bg-white px-3 py-1 rounded-lg border border-slate-300 transition"
-            >
-              <Volume2 className="h-3.5 w-3.5" /> Testar Voz Agora
-            </button>
-            <span className="text-[10px] text-slate-600 font-bold">1.5x (Mais Rápida)</span>
-          </div>
         </div>
 
         {/* Setting 5: Vibração Háptica */}
