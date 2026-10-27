@@ -1,6 +1,7 @@
 import React from 'react';
-import { Sliders, Volume2, VolumeX, Type, Eye, Smartphone, RotateCcw, Check, Sparkles, X, Bot } from 'lucide-react';
-import { AppSettings, FontSize, ContrastTheme } from '../types';
+import { Sliders, Volume2, VolumeX, Type, Eye, Smartphone, RotateCcw, Check, Sparkles, X, Bot, MessageSquare, GraduationCap, Zap, Mic } from 'lucide-react';
+import { AppSettings, FontSize, ContrastTheme, VoiceSpeechStyle } from '../types';
+import { VOICE_SPEECH_STYLES } from './FalarPorMim';
 
 interface AjustesModalProps {
   settings: AppSettings;
@@ -10,7 +11,7 @@ interface AjustesModalProps {
   voices?: SpeechSynthesisVoice[];
   selectedVoice?: SpeechSynthesisVoice | null;
   onSelectVoice?: (voiceURI: string) => void;
-  onSelectChatGptPersona?: (persona: 'chatgpt-natural' | 'chatgpt-masculino') => void;
+  onUpdateSpeechStyle?: (style: VoiceSpeechStyle, rate: number, pitch: number) => void;
   isSpeaking?: boolean;
   cancelSpeak?: () => void;
 }
@@ -23,7 +24,7 @@ export const AjustesModal: React.FC<AjustesModalProps> = ({
   voices = [],
   selectedVoice,
   onSelectVoice,
-  onSelectChatGptPersona,
+  onUpdateSpeechStyle,
   isSpeaking = false,
   cancelSpeak,
 }) => {
@@ -144,57 +145,62 @@ export const AjustesModal: React.FC<AjustesModalProps> = ({
           </div>
         </div>
 
-        {/* Setting 3: VOZ ESTILO CHATGPT */}
+        {/* Setting 3: VOZ E ESTILOS DE FALA */}
         <div className="space-y-3 p-4 rounded-2xl bg-orange-50 border border-orange-300">
           <div className="flex items-center justify-between">
             <label className="text-xs font-black uppercase tracking-wider text-stone-950 flex items-center gap-1.5">
               <Sparkles className="h-4 w-4 text-orange-600" />
-              Configuração de Voz Estilo ChatGPT
+              Estilos de Fala e Voz
             </label>
             <span className="text-[11px] font-black text-orange-950 bg-orange-200 px-2.5 py-0.5 rounded-full border border-orange-300">
-              Voz Neural Humana
+              {settings.voiceStyle ? settings.voiceStyle.toUpperCase() : 'CONVERSACIONAL'}
             </span>
           </div>
 
           <p className="text-xs text-stone-700 leading-relaxed">
-            Utiliza vozes neurais de alta fidelidade com cadência fluida (1.05x) e tom caloroso, idêntica à síntese conversacional do ChatGPT.
+            Selecione o estilo de fala mais adequado para a sua rotina de estudo, sala de aula ou apresentações.
           </p>
 
-          {/* Quick Persona Buttons */}
-          <div className="grid grid-cols-2 gap-2 pt-1">
-            <button
-              type="button"
-              onClick={() => {
-                if (onSelectChatGptPersona) {
-                  onSelectChatGptPersona('chatgpt-natural');
-                  speak('Olá! Voz feminina estilo ChatGPT ativada.');
-                }
-              }}
-              className="p-2.5 rounded-xl bg-white hover:bg-orange-100 border border-orange-300 text-left transition shadow-2xs cursor-pointer"
-            >
-              <div className="flex items-center gap-1 mb-0.5">
-                <Sparkles className="h-3.5 w-3.5 text-orange-600" />
-                <strong className="block text-xs font-black text-stone-950">Voz Feminina (Francisca)</strong>
-              </div>
-              <span className="text-[11px] text-stone-600">Fluida, suave e expressiva</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                if (onSelectChatGptPersona) {
-                  onSelectChatGptPersona('chatgpt-masculino');
-                  speak('Olá! Voz masculina estilo ChatGPT ativada.');
-                }
-              }}
-              className="p-2.5 rounded-xl bg-white hover:bg-orange-100 border border-orange-300 text-left transition shadow-2xs cursor-pointer"
-            >
-              <div className="flex items-center gap-1 mb-0.5">
-                <Sparkles className="h-3.5 w-3.5 text-orange-600" />
-                <strong className="block text-xs font-black text-stone-950">Voz Masculina (Antonio)</strong>
-              </div>
-              <span className="text-[11px] text-stone-600">Clara, articulada e amigável</span>
-            </button>
+          {/* Voice Speech Styles Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+            {VOICE_SPEECH_STYLES.map((style) => {
+              const Icon = style.icon;
+              const isActive = (settings.voiceStyle || 'conversacional') === style.id;
+              return (
+                <button
+                  key={style.id}
+                  type="button"
+                  onClick={() => {
+                    if (onUpdateSpeechStyle) {
+                      onUpdateSpeechStyle(style.id, style.rate, style.pitch);
+                    } else {
+                      updateSetting('voiceStyle', style.id);
+                      updateSetting('voiceRate', style.rate);
+                      updateSetting('voicePitch', style.pitch);
+                    }
+                    speak(style.samplePhrase, undefined, settings.selectedVoiceURI);
+                  }}
+                  className={`p-2.5 rounded-xl border text-left transition shadow-2xs flex flex-col justify-between gap-1 cursor-pointer ${
+                    isActive
+                      ? 'bg-orange-200/90 border-orange-500 ring-2 ring-orange-400'
+                      : 'bg-white hover:bg-orange-100 border-orange-300'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <Icon className="h-3.5 w-3.5 text-orange-600" />
+                      <strong className="block text-xs font-black text-stone-950">{style.name}</strong>
+                    </div>
+                    {isActive && (
+                      <span className="text-[9px] font-black uppercase bg-orange-600 text-white px-1.5 py-0.2 rounded flex items-center gap-0.5">
+                        <Check className="h-2.5 w-2.5" /> Ativo
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-[10px] text-stone-600 leading-tight">{style.description}</span>
+                </button>
+              );
+            })}
           </div>
 
           {/* Voice Dropdown + Instant Test Button */}

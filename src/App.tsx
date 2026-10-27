@@ -27,7 +27,7 @@ import {
   UserPlus
 } from 'lucide-react';
 
-import { ActiveTab, AppSettings, UserRole, UserAccount } from './types';
+import { ActiveTab, AppSettings, UserRole, UserAccount, VoiceSpeechStyle } from './types';
 import { useSpeechSynthesis } from './hooks/useSpeechSynthesis';
 import { useSpeechRecognition } from './hooks/useSpeechRecognition';
 import { getCurrentUser, setCurrentUser as setStoredCurrentUser } from './data/authUsersData';
@@ -174,6 +174,21 @@ export default function App() {
         return updated;
       }
       return prev;
+    });
+  }, []);
+
+  const handleUpdateSpeechStyle = useCallback((style: VoiceSpeechStyle, rate: number, pitch: number) => {
+    setSettings((prev) => {
+      const updated = {
+        ...prev,
+        voiceStyle: style,
+        voiceRate: rate,
+        voicePitch: pitch,
+      };
+      try {
+        localStorage.setItem('ponte_app_settings', JSON.stringify(updated));
+      } catch {}
+      return updated;
     });
   }, []);
 
@@ -469,23 +484,7 @@ export default function App() {
                 return updated;
               });
             }}
-            onSelectChatGptPersona={(persona) => {
-              const voice = setChatGptPersona(persona);
-              if (voice) {
-                setSettings((prev) => {
-                  const updated = {
-                    ...prev,
-                    selectedVoiceURI: voice.voiceURI,
-                    voiceRate: 1.05,
-                    voicePitch: persona === 'chatgpt-natural' ? 1.02 : 1.0,
-                  };
-                  try {
-                    localStorage.setItem('ponte_app_settings', JSON.stringify(updated));
-                  } catch {}
-                  return updated;
-                });
-              }
-            }}
+            onUpdateSpeechStyle={handleUpdateSpeechStyle}
           />
         )}
 
@@ -594,23 +593,7 @@ export default function App() {
               return updated;
             });
           }}
-          onSelectChatGptPersona={(persona) => {
-            const voice = setChatGptPersona(persona);
-            if (voice) {
-              setSettings((prev) => {
-                const updated = {
-                  ...prev,
-                  selectedVoiceURI: voice.voiceURI,
-                  voiceRate: 1.05,
-                  voicePitch: persona === 'chatgpt-natural' ? 1.02 : 1.0,
-                };
-                try {
-                  localStorage.setItem('ponte_app_settings', JSON.stringify(updated));
-                } catch {}
-                return updated;
-              });
-            }
-          }}
+          onUpdateSpeechStyle={handleUpdateSpeechStyle}
         />
       )}
 

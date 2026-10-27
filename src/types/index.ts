@@ -62,12 +62,15 @@ export type ContrastTheme = 'azul-laranja' | 'laranja-pastel' | 'padrao' | 'amar
 
 export type FontSize = 'normal' | 'grande' | 'gigante';
 
+export type VoiceSpeechStyle = 'conversacional' | 'didatica' | 'rapida' | 'enfase';
+
 export interface AppSettings {
   fontSize: FontSize;
   contrastTheme: ContrastTheme;
   voiceRate: number; // 0.5 to 2.0
   voicePitch: number; // 0.5 to 1.5
   selectedVoiceURI: string;
+  voiceStyle?: VoiceSpeechStyle;
   vibrationEnabled: boolean;
   accessibleFont: boolean;
   screenWakeLock: boolean;

@@ -14,9 +14,67 @@ import {
   Smartphone,
   Sliders,
   Bot,
-  RefreshCw
+  RefreshCw,
+  MessageSquare,
+  GraduationCap,
+  Zap,
+  Mic
 } from 'lucide-react';
-import { AppSettings } from '../types';
+import { AppSettings, VoiceSpeechStyle } from '../types';
+
+interface VoiceSpeechStyleOption {
+  id: VoiceSpeechStyle;
+  name: string;
+  badge: string;
+  description: string;
+  samplePhrase: string;
+  rate: number;
+  pitch: number;
+  icon: React.ComponentType<{ className?: string }>;
+}
+
+export const VOICE_SPEECH_STYLES: VoiceSpeechStyleOption[] = [
+  {
+    id: 'conversacional',
+    name: 'Natural & Diálogo',
+    badge: '1.05x • Amigável',
+    description: 'Fluida e natural para conversar no dia a dia com colegas.',
+    samplePhrase: 'Olá! Este é o estilo de fala conversacional, natural e fluido para o dia a dia.',
+    rate: 1.05,
+    pitch: 1.02,
+    icon: MessageSquare,
+  },
+  {
+    id: 'didatica',
+    name: 'Sala de Aula & Didática',
+    badge: '0.90x • Articulada',
+    description: 'Ritmo pausado e dicção nítida para o professor e a turma ouvirem com máxima clareza.',
+    samplePhrase: 'Olá professor! Este é o estilo didático, mais pausado para facilitar a compreensão em sala de aula.',
+    rate: 0.90,
+    pitch: 1.00,
+    icon: GraduationCap,
+  },
+  {
+    id: 'rapida',
+    name: 'Ágil & Prática',
+    badge: '1.20x • Dinâmica',
+    description: 'Cadência acelerada para respostas curtas, código e atividades em laboratório.',
+    samplePhrase: 'Olá! Estilo ágil ativado para respostas rápidas e práticas.',
+    rate: 1.20,
+    pitch: 1.00,
+    icon: Zap,
+  },
+  {
+    id: 'enfase',
+    name: 'Ênfase & Apresentação',
+    badge: '0.95x • Tom Marcante',
+    description: 'Projeção de voz destacada para responder chamada, dúvidas perante a turma ou seminários.',
+    samplePhrase: 'Atenção turma! Este é o estilo com ênfase vocal para apresentações e perguntas em público.',
+    rate: 0.95,
+    pitch: 1.10,
+    icon: Mic,
+  },
+];
 
 interface FalarPorMimProps {
   speak: (text: string, onEndCallback?: () => void, overrideVoiceURI?: string) => void;
@@ -26,7 +84,7 @@ interface FalarPorMimProps {
   voices?: SpeechSynthesisVoice[];
   selectedVoice?: SpeechSynthesisVoice | null;
   onSelectVoice?: (voiceURI: string) => void;
-  onSelectChatGptPersona?: (persona: 'chatgpt-natural' | 'chatgpt-masculino') => void;
+  onUpdateSpeechStyle?: (style: VoiceSpeechStyle, rate: number, pitch: number) => void;
 }
 
 export const FalarPorMim: React.FC<FalarPorMimProps> = ({
@@ -37,7 +95,7 @@ export const FalarPorMim: React.FC<FalarPorMimProps> = ({
   voices = [],
   selectedVoice,
   onSelectVoice,
-  onSelectChatGptPersona,
+  onUpdateSpeechStyle,
 }) => {
   const [text, setText] = useState('');
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -226,25 +284,25 @@ export const FalarPorMim: React.FC<FalarPorMimProps> = ({
           </div>
         </div>
 
-        {/* VOICE SELECTOR CARD - ESTILO CHATGPT */}
-        <div className="p-4 sm:p-5 rounded-2xl bg-orange-50 border-2 border-orange-200/90 space-y-3.5 shadow-2xs">
+        {/* VOICE SELECTOR CARD & SPEECH STYLES */}
+        <div className="p-4 sm:p-5 rounded-2xl bg-orange-50 border-2 border-orange-200/90 space-y-4 shadow-2xs">
           <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-orange-200">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-300 text-stone-900 font-black border border-orange-400 shrink-0 shadow-xs">
-                <Sparkles className="h-5 w-5" />
+                <Sliders className="h-5 w-5" />
               </div>
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-black text-stone-950 text-sm">Voz do Sistema (Estilo ChatGPT):</span>
+                  <span className="font-black text-stone-950 text-sm">Voz e Estilos de Fala:</span>
                   <span className="text-[11px] font-extrabold bg-orange-200 text-stone-900 px-2.5 py-0.5 rounded-full border border-orange-300">
-                    {selectedVoice ? selectedVoice.name : 'Voz Neural Selecionada'}
+                    {selectedVoice ? selectedVoice.name : 'Voz do Sistema'}
                   </span>
                   <span className="text-[10px] font-black uppercase tracking-wider bg-stone-900 text-white px-2 py-0.5 rounded">
-                    {settings.voiceRate ? settings.voiceRate.toFixed(2) : '1.05'}x Fluida
+                    {settings.voiceRate ? settings.voiceRate.toFixed(2) : '1.05'}x
                   </span>
                 </div>
                 <p className="text-[11px] text-stone-600 font-medium mt-0.5">
-                  Troque de voz abaixo e clique em testar para ouvir como ela soa.
+                  Escolha a voz instalada e selecione o estilo de entonação para sala de aula ou laboratório.
                 </p>
               </div>
             </div>
@@ -263,12 +321,12 @@ export const FalarPorMim: React.FC<FalarPorMimProps> = ({
             ) : (
               <button
                 type="button"
-                onClick={() => speak('Olá! Esta é a voz configurada no estilo ChatGPT para falar por você com máxima naturalidade e clareza.', undefined, currentVoiceURI)}
+                onClick={() => speak('Olá! Esta é a voz configurada para falar por você com máxima clareza e naturalidade.', undefined, currentVoiceURI)}
                 className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-orange-300 hover:bg-orange-400 text-stone-900 font-black text-xs transition border border-orange-400 shadow-2xs cursor-pointer"
                 title="Testar como soa a voz selecionada"
               >
                 <Volume2 className="h-4 w-4" />
-                <span>Ouvir Teste de Voz</span>
+                <span>Ouvir Teste Geral</span>
               </button>
             )}
           </div>
@@ -281,24 +339,24 @@ export const FalarPorMim: React.FC<FalarPorMimProps> = ({
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-600 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-orange-600"></span>
                 </span>
-                <span>Reproduzindo voz agora: {selectedVoice?.name || 'Voz do sistema'}</span>
+                <span>Reproduzindo fala agora no alto-falante: {selectedVoice?.name || 'Voz ativa'}</span>
               </div>
               <button
                 type="button"
                 onClick={cancelSpeak}
-                className="px-2.5 py-1 bg-stone-900 text-white rounded-lg text-[11px] font-black hover:bg-stone-800 transition"
+                className="px-2.5 py-1 bg-stone-900 text-white rounded-lg text-[11px] font-black hover:bg-stone-800 transition cursor-pointer"
               >
                 Silenciar
               </button>
             </div>
           )}
 
-          {/* Direct Dropdown & Presets */}
-          <div className="space-y-2">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          {/* Voice Dropdown */}
+          <div className="space-y-1.5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
               <label htmlFor="voice-select-dropdown" className="text-xs font-black text-stone-900 flex items-center gap-1">
                 <Volume2 className="h-3.5 w-3.5 text-orange-600" />
-                <span>Escolha a voz que vai falar por você:</span>
+                <span>Voz do Dispositivo:</span>
               </label>
 
               {voices.length > ptVoices.length && ptVoices.length > 0 && (
@@ -312,7 +370,6 @@ export const FalarPorMim: React.FC<FalarPorMimProps> = ({
               )}
             </div>
 
-            {/* Interactive Select Element + Instant Test Button */}
             {displayVoices.length > 0 ? (
               <div className="flex gap-2 items-center">
                 <select
@@ -371,35 +428,74 @@ export const FalarPorMim: React.FC<FalarPorMimProps> = ({
                 </button>
               </div>
             )}
+          </div>
 
-            {/* Quick 1-Click ChatGPT Persona Buttons */}
-            {onSelectChatGptPersona && (
-              <div className="flex flex-wrap items-center gap-2 pt-1">
-                <span className="text-[11px] font-bold text-stone-700">Predefinições Rápidas:</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    onSelectChatGptPersona('chatgpt-natural');
-                    speak('Olá! Voz feminina estilo ChatGPT configurada com sucesso.');
-                  }}
-                  className="px-3 py-1.5 rounded-xl bg-white hover:bg-orange-100 text-stone-900 border border-orange-300 text-xs font-black transition shadow-2xs flex items-center gap-1 cursor-pointer"
-                >
-                  <Sparkles className="h-3 w-3 text-orange-600" />
-                  <span>Voz Feminina (Francisca / Google)</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    onSelectChatGptPersona('chatgpt-masculino');
-                    speak('Olá! Voz masculina estilo ChatGPT configurada com sucesso.');
-                  }}
-                  className="px-3 py-1.5 rounded-xl bg-white hover:bg-orange-100 text-stone-900 border border-orange-300 text-xs font-black transition shadow-2xs flex items-center gap-1 cursor-pointer"
-                >
-                  <Sparkles className="h-3 w-3 text-orange-600" />
-                  <span>Voz Masculina (Antonio / Felipe)</span>
-                </button>
-              </div>
-            )}
+          {/* NOVO: ESTILOS DE FALA E ENTONAÇÃO (SUBSTITUI PREDEFINIÇÕES FEMININA/MASCULINA) */}
+          <div className="space-y-2 pt-2 border-t border-orange-200">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-black uppercase tracking-wider text-stone-900 flex items-center gap-1.5">
+                <Sparkles className="h-4 w-4 text-orange-600" />
+                Estilos de Fala e Entonação
+              </span>
+              <span className="text-[10px] text-stone-600 font-bold">
+                Clique para ativar e ouvir o estilo
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              {VOICE_SPEECH_STYLES.map((style) => {
+                const Icon = style.icon;
+                const isActive = (settings.voiceStyle || 'conversacional') === style.id;
+                return (
+                  <button
+                    key={style.id}
+                    type="button"
+                    onClick={() => {
+                      if (onUpdateSpeechStyle) {
+                        onUpdateSpeechStyle(style.id, style.rate, style.pitch);
+                      }
+                      speak(style.samplePhrase, undefined, currentVoiceURI);
+                    }}
+                    className={`p-3 rounded-xl border-2 text-left transition flex flex-col justify-between gap-2 cursor-pointer shadow-2xs ${
+                      isActive
+                        ? 'bg-orange-200/80 border-orange-500 ring-2 ring-orange-400'
+                        : 'bg-white border-orange-200 hover:border-orange-300 hover:bg-orange-100/50'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <div className={`p-1.5 rounded-lg ${isActive ? 'bg-orange-400 text-stone-950 font-black' : 'bg-orange-100 text-stone-800'}`}>
+                          <Icon className="h-4 w-4" />
+                        </div>
+                        <div>
+                          <strong className="block text-xs font-black text-stone-950">
+                            {style.name}
+                          </strong>
+                          <span className="text-[10px] font-bold text-stone-600">
+                            {style.badge}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1">
+                        {isActive && (
+                          <span className="flex items-center gap-0.5 text-[10px] font-black uppercase tracking-wider bg-orange-600 text-white px-1.5 py-0.5 rounded">
+                            <Check className="h-3 w-3" /> Ativo
+                          </span>
+                        )}
+                        <span className="text-[11px] text-orange-800 font-extrabold flex items-center gap-0.5 hover:underline">
+                          <Volume2 className="h-3.5 w-3.5" />
+                        </span>
+                      </div>
+                    </div>
+
+                    <p className="text-[11px] text-stone-700 leading-snug">
+                      {style.description}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
 
