@@ -13,7 +13,8 @@ import {
   ArrowUpRight, 
   Smartphone,
   Sliders,
-  Bot
+  Bot,
+  RefreshCw
 } from 'lucide-react';
 import { AppSettings } from '../types';
 
@@ -42,6 +43,7 @@ export const FalarPorMim: React.FC<FalarPorMimProps> = ({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isFlipped, setIsFlipped] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [showAllVoices, setShowAllVoices] = useState(false);
   const [history, setHistory] = useState<string[]>([
     'Olá! Eu sou surdo(a). Podemos nos comunicar por texto aqui.',
     'Professor, tenho uma dúvida no exercício de programação.',
@@ -73,6 +75,23 @@ export const FalarPorMim: React.FC<FalarPorMimProps> = ({
     'Meu código deu erro',
     'Posso ir ao banheiro?',
   ];
+
+  // Filter Portuguese voices
+  const ptVoices = voices.filter((v) => {
+    const lang = (v.lang || '').toLowerCase().replace('_', '-');
+    const name = (v.name || '').toLowerCase();
+    return (
+      lang.startsWith('pt') ||
+      lang.includes('por') ||
+      name.includes('portugu') ||
+      name.includes('brazil') ||
+      name.includes('brasil')
+    );
+  });
+
+  const displayVoices = showAllVoices || ptVoices.length === 0 ? voices : ptVoices;
+
+  const currentVoiceURI = selectedVoice?.voiceURI || settings.selectedVoiceURI || (voices[0]?.voiceURI ?? '');
 
   return (
     <div className="space-y-6">
@@ -207,59 +226,129 @@ export const FalarPorMim: React.FC<FalarPorMimProps> = ({
           </div>
         </div>
 
-        {/* VOICE PERSONA BAR - ESTILO CHATGPT */}
-        <div className="p-3 sm:p-4 rounded-2xl bg-orange-50/90 border border-orange-200 flex flex-wrap items-center justify-between gap-3 text-xs shadow-2xs">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-300 text-stone-900 font-black border border-orange-400/80 shrink-0 shadow-xs">
-              <Sparkles className="h-5 w-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-black text-stone-950 text-sm">Voz Estilo ChatGPT:</span>
-                <span className="text-[11px] font-extrabold bg-orange-200 text-stone-900 px-2.5 py-0.5 rounded-full border border-orange-300">
-                  {selectedVoice ? selectedVoice.name : 'Voz Neural Natural pt-BR'}
-                </span>
-                <span className="text-[10px] font-black uppercase tracking-wider bg-black text-white px-2 py-0.5 rounded">
-                  {settings.voiceRate ? settings.voiceRate.toFixed(2) : '1.05'}x Fluida
-                </span>
+        {/* VOICE SELECTOR CARD - ESTILO CHATGPT */}
+        <div className="p-4 sm:p-5 rounded-2xl bg-orange-50 border-2 border-orange-200/90 space-y-3.5 shadow-2xs">
+          <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-orange-200">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-300 text-stone-900 font-black border border-orange-400 shrink-0 shadow-xs">
+                <Sparkles className="h-5 w-5" />
               </div>
-              <p className="text-[11px] text-stone-600 font-medium mt-0.5">
-                Entonação humana e conversacional calibrada com timbres neurais modernos de alta fidelidade.
-              </p>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-black text-stone-950 text-sm">Voz do Sistema (Estilo ChatGPT):</span>
+                  <span className="text-[11px] font-extrabold bg-orange-200 text-stone-900 px-2.5 py-0.5 rounded-full border border-orange-300">
+                    {selectedVoice ? selectedVoice.name : 'Voz Neural Selecionada'}
+                  </span>
+                  <span className="text-[10px] font-black uppercase tracking-wider bg-stone-900 text-white px-2 py-0.5 rounded">
+                    {settings.voiceRate ? settings.voiceRate.toFixed(2) : '1.05'}x Fluida
+                  </span>
+                </div>
+                <p className="text-[11px] text-stone-600 font-medium mt-0.5">
+                  Selecione abaixo a voz desejada para falar em sala de aula ou no laboratório.
+                </p>
+              </div>
             </div>
+
+            {/* Quick Test Button */}
+            <button
+              type="button"
+              onClick={() => speak('Olá! Esta é a voz configurada para falar por mim com máxima clareza e naturalidade.')}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-orange-300 hover:bg-orange-400 text-stone-900 font-black text-xs transition border border-orange-400 shadow-2xs"
+              title="Testar como soa a voz selecionada"
+            >
+              <Volume2 className="h-4 w-4" />
+              <span>Ouvir Teste de Voz</span>
+            </button>
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap">
+          {/* Direct Dropdown & Presets */}
+          <div className="space-y-2">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <label htmlFor="voice-select-dropdown" className="text-xs font-black text-stone-900 flex items-center gap-1">
+                <Volume2 className="h-3.5 w-3.5 text-orange-600" />
+                <span>Escolha a voz que vai falar por você:</span>
+              </label>
+
+              {voices.length > ptVoices.length && ptVoices.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setShowAllVoices(!showAllVoices)}
+                  className="text-[11px] text-stone-600 hover:text-black font-bold underline text-left sm:text-right"
+                >
+                  {showAllVoices ? 'Mostrar apenas vozes em Português' : `Ver todas as vozes do sistema (${voices.length})`}
+                </button>
+              )}
+            </div>
+
+            {/* Interactive Select Element */}
+            {displayVoices.length > 0 ? (
+              <div className="flex gap-2 items-center">
+                <select
+                  id="voice-select-dropdown"
+                  value={currentVoiceURI}
+                  onChange={(e) => {
+                    if (onSelectVoice) {
+                      onSelectVoice(e.target.value);
+                    }
+                  }}
+                  className="flex-1 p-2.5 rounded-xl bg-white border-2 border-orange-300 text-stone-900 font-bold text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 shadow-2xs cursor-pointer"
+                >
+                  {displayVoices.map((v) => {
+                    const isNeural = 
+                      v.name.toLowerCase().includes('natural') || 
+                      v.name.toLowerCase().includes('neural') ||
+                      v.name.toLowerCase().includes('francisca') ||
+                      v.name.toLowerCase().includes('antonio');
+                    return (
+                      <option key={v.voiceURI} value={v.voiceURI}>
+                        {isNeural ? '✨ ' : ''}{v.name} ({v.lang})
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+            ) : (
+              <div className="p-3 bg-white rounded-xl border border-orange-300 text-xs flex items-center justify-between gap-2">
+                <span className="text-stone-700 font-medium">
+                  Carregando vozes disponíveis no navegador...
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+                      window.speechSynthesis.getVoices();
+                    }
+                  }}
+                  className="px-2.5 py-1 rounded-lg bg-orange-200 text-stone-900 font-bold flex items-center gap-1 hover:bg-orange-300 transition"
+                >
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  Atualizar Lista
+                </button>
+              </div>
+            )}
+
+            {/* Quick 1-Click ChatGPT Persona Buttons */}
             {onSelectChatGptPersona && (
-              <>
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                <span className="text-[11px] font-bold text-stone-700">Predefinições Rápidas:</span>
                 <button
                   type="button"
                   onClick={() => onSelectChatGptPersona('chatgpt-natural')}
-                  className="px-3 py-1.5 rounded-xl bg-white hover:bg-orange-100 text-stone-900 border border-orange-300 text-xs font-bold transition shadow-2xs"
-                  title="Voz natural feminina estilo ChatGPT (Francisca / Google Neural)"
+                  className="px-3 py-1.5 rounded-xl bg-white hover:bg-orange-100 text-stone-900 border border-orange-300 text-xs font-black transition shadow-2xs flex items-center gap-1"
                 >
-                  Feminina (Francisca)
+                  <Sparkles className="h-3 w-3 text-orange-600" />
+                  <span>Voz Feminina (Francisca / Google)</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => onSelectChatGptPersona('chatgpt-masculino')}
-                  className="px-3 py-1.5 rounded-xl bg-white hover:bg-orange-100 text-stone-900 border border-orange-300 text-xs font-bold transition shadow-2xs"
-                  title="Voz natural masculina estilo ChatGPT (Antonio / Felipe)"
+                  className="px-3 py-1.5 rounded-xl bg-white hover:bg-orange-100 text-stone-900 border border-orange-300 text-xs font-black transition shadow-2xs flex items-center gap-1"
                 >
-                  Masculina (Antonio)
+                  <Sparkles className="h-3 w-3 text-orange-600" />
+                  <span>Voz Masculina (Antonio / Felipe)</span>
                 </button>
-              </>
+              </div>
             )}
-
-            <button
-              type="button"
-              onClick={() => speak('Olá! Esta é a voz configurada no estilo ChatGPT para falar por mim com máxima clareza e naturalidade.')}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-orange-300 hover:bg-orange-400 text-stone-900 font-black text-xs transition border border-orange-400 shadow-2xs"
-              title="Testar a pronúncia da voz agora"
-            >
-              <Volume2 className="h-3.5 w-3.5" />
-              <span>Testar Voz</span>
-            </button>
           </div>
         </div>
 

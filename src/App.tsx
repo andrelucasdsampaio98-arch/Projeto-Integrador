@@ -169,6 +169,7 @@ export default function App() {
     isSpeaking,
     voices,
     selectedVoice,
+    selectVoiceByURI,
     setChatGptPersona,
     speak,
     cancel: cancelSpeak,
@@ -456,6 +457,7 @@ export default function App() {
             voices={voices}
             selectedVoice={selectedVoice}
             onSelectVoice={(uri) => {
+              selectVoiceByURI(uri);
               setSettings((prev) => {
                 const updated = { ...prev, selectedVoiceURI: uri };
                 try {
@@ -577,6 +579,16 @@ export default function App() {
           onClose={() => setShowSettings(false)}
           voices={voices}
           selectedVoice={selectedVoice}
+          onSelectVoice={(uri) => {
+            selectVoiceByURI(uri);
+            setSettings((prev) => {
+              const updated = { ...prev, selectedVoiceURI: uri };
+              try {
+                localStorage.setItem('ponte_app_settings', JSON.stringify(updated));
+              } catch {}
+              return updated;
+            });
+          }}
           onSelectChatGptPersona={(persona) => {
             const voice = setChatGptPersona(persona);
             if (voice) {

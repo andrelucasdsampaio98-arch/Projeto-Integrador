@@ -8,6 +8,22 @@ interface UseSpeechSynthesisProps {
 }
 
 /**
+ * Normalizes language tags (pt-BR, pt_BR, pt, por-BRA, etc.)
+ */
+function isPortugueseVoice(v: SpeechSynthesisVoice): boolean {
+  if (!v) return false;
+  const lang = (v.lang || '').toLowerCase().replace('_', '-');
+  const name = (v.name || '').toLowerCase();
+  return (
+    lang.startsWith('pt') ||
+    lang.includes('por') ||
+    name.includes('portugu') ||
+    name.includes('brazil') ||
+    name.includes('brasil')
+  );
+}
+
+/**
  * Scores voices to find the closest match to ChatGPT's expressive,
  * natural and warm conversational voice in Portuguese.
  */
@@ -17,54 +33,53 @@ export function findBestVoiceForChatGpt(
 ): SpeechSynthesisVoice | null {
   if (!voices || voices.length === 0) return null;
 
-  // Filter Portuguese voices
-  const ptVoices = voices.filter(
-    (v) => v.lang === 'pt-BR' || v.lang.startsWith('pt') || v.name.toLowerCase().includes('portuguese') || v.name.toLowerCase().includes('brasil')
-  );
+  // Filter Portuguese voices first
+  const ptVoices = voices.filter(isPortugueseVoice);
   const candidatePool = ptVoices.length > 0 ? ptVoices : voices;
 
   const scoreVoice = (v: SpeechSynthesisVoice): number => {
     const name = v.name.toLowerCase();
-    const uri = v.voiceURI.toLowerCase();
+    const uri = (v.voiceURI || '').toLowerCase();
+    const lang = (v.lang || '').toLowerCase().replace('_', '-');
     let score = 0;
 
-    // pt-BR bonus
-    if (v.lang === 'pt-BR') score += 30;
-    else if (v.lang.startsWith('pt')) score += 15;
+    // pt-BR highest priority
+    if (lang === 'pt-br') score += 40;
+    else if (lang.startsWith('pt')) score += 20;
 
-    // High quality Neural / Natural indicators (same tech behind ChatGPT voice models)
-    if (name.includes('natural') || uri.includes('natural')) score += 60;
-    if (name.includes('neural') || uri.includes('neural')) score += 60;
-    if (name.includes('online') || uri.includes('online')) score += 30;
-    if (name.includes('enhanced') || name.includes('premium')) score += 45;
+    // High quality Neural / Natural indicators (same neural models as ChatGPT)
+    if (name.includes('natural') || uri.includes('natural')) score += 70;
+    if (name.includes('neural') || uri.includes('neural')) score += 70;
+    if (name.includes('online') || uri.includes('online')) score += 35;
+    if (name.includes('enhanced') || name.includes('premium')) score += 50;
 
     // Microsoft Natural Brazilian voices (closest timbre and intonation to ChatGPT in pt-BR)
     if (name.includes('francisca')) {
-      score += preferredPersona === 'chatgpt-masculino' ? 30 : 80;
+      score += preferredPersona === 'chatgpt-masculino' ? 30 : 90;
     }
     if (name.includes('antonio')) {
-      score += preferredPersona === 'chatgpt-masculino' ? 85 : 40;
+      score += preferredPersona === 'chatgpt-masculino' ? 95 : 40;
     }
     if (name.includes('thalita')) {
-      score += preferredPersona === 'chatgpt-masculino' ? 25 : 70;
+      score += preferredPersona === 'chatgpt-masculino' ? 25 : 80;
     }
 
     // Google Natural / Neural pt-BR voices
-    if (name.includes('google') && (v.lang === 'pt-BR' || name.includes('brasil') || name.includes('português'))) {
-      score += preferredPersona === 'chatgpt-masculino' ? 50 : 65;
+    if (name.includes('google') && (lang === 'pt-br' || name.includes('brasil') || name.includes('português'))) {
+      score += preferredPersona === 'chatgpt-masculino' ? 50 : 75;
     }
 
     // Apple Natural Brazilian voices
-    if (name.includes('luciana')) score += preferredPersona === 'chatgpt-masculino' ? 20 : 55;
-    if (name.includes('felipe')) score += preferredPersona === 'chatgpt-masculino' ? 65 : 30;
-    if (name.includes('joana')) score += preferredPersona === 'chatgpt-masculino' ? 20 : 50;
+    if (name.includes('luciana')) score += preferredPersona === 'chatgpt-masculino' ? 20 : 60;
+    if (name.includes('felipe')) score += preferredPersona === 'chatgpt-masculino' ? 70 : 30;
+    if (name.includes('joana')) score += preferredPersona === 'chatgpt-masculino' ? 20 : 55;
 
     // Android network neural voices (e.g. pt-br-x-afs-network)
-    if (uri.includes('network') || name.includes('network')) score += 45;
+    if (uri.includes('network') || name.includes('network')) score += 55;
 
-    // Heavy penalty for legacy robotic synthesizers
-    if (name.includes('espeak') || uri.includes('espeak')) score -= 80;
-    if (name.includes('desktop') && !name.includes('natural')) score -= 25;
+    // Penalize legacy robotic synthesizers
+    if (name.includes('espeak') || uri.includes('espeak')) score -= 100;
+    if (name.includes('desktop') && !name.includes('natural')) score -= 30;
 
     return score;
   };
@@ -95,36 +110,54 @@ export function useSpeechSynthesis({
       setIsSupported(true);
 
       const updateVoices = () => {
-        const availableVoices = window.speechSynthesis.getVoices();
-        if (availableVoices.length === 0) return;
-        setVoices(availableVoices);
+        try {
+          const availableVoices = window.speechSynthesis.getVoices() || [];
+          if (availableVoices.length === 0) return;
 
-        let targetVoice: SpeechSynthesisVoice | null = null;
+          setVoices(availableVoices);
 
-        // If a specific voiceURI is saved, try to find it
-        if (currentVoiceURIRef.current) {
-          targetVoice = availableVoices.find((v) => v.voiceURI === currentVoiceURIRef.current) || null;
-        }
+          let targetVoice: SpeechSynthesisVoice | null = null;
 
-        // Otherwise pick the best natural voice matching ChatGPT's conversational tone
-        if (!targetVoice) {
-          targetVoice = findBestVoiceForChatGpt(availableVoices, 'chatgpt-natural');
-          if (targetVoice && onVoiceAutoSelect) {
-            onVoiceAutoSelect(targetVoice.voiceURI);
+          // 1. If voiceURI is provided and matches an existing voice
+          if (currentVoiceURIRef.current) {
+            targetVoice = availableVoices.find((v) => v.voiceURI === currentVoiceURIRef.current) || null;
           }
-        }
 
-        setSelectedVoice(targetVoice || availableVoices[0] || null);
+          // 2. Otherwise auto-select the best ChatGPT-like voice
+          if (!targetVoice) {
+            targetVoice = findBestVoiceForChatGpt(availableVoices, 'chatgpt-natural');
+            if (targetVoice && onVoiceAutoSelect) {
+              onVoiceAutoSelect(targetVoice.voiceURI);
+            }
+          }
+
+          setSelectedVoice(targetVoice || availableVoices[0] || null);
+        } catch (e) {
+          console.warn('Error reading speechSynthesis voices:', e);
+        }
       };
 
+      // 1. Initial immediate attempt
       updateVoices();
 
-      // Many browsers load voices asynchronously
+      // 2. Browser event listener
       window.speechSynthesis.onvoiceschanged = updateVoices;
-      const timer = setTimeout(updateVoices, 250);
+
+      // 3. Fallback active polling (essential for Chrome, Android & Safari where voices load asynchronously)
+      let pollCount = 0;
+      const pollInterval = setInterval(() => {
+        pollCount++;
+        const currentVoices = window.speechSynthesis.getVoices();
+        if (currentVoices && currentVoices.length > 0) {
+          updateVoices();
+          clearInterval(pollInterval);
+        } else if (pollCount > 25) {
+          clearInterval(pollInterval);
+        }
+      }, 150);
 
       return () => {
-        clearTimeout(timer);
+        clearInterval(pollInterval);
         if (window.speechSynthesis) {
           window.speechSynthesis.cancel();
         }
@@ -132,7 +165,7 @@ export function useSpeechSynthesis({
     }
   }, [onVoiceAutoSelect]);
 
-  // Update selectedVoice when voiceURI prop changes
+  // Sync selectedVoice when voiceURI prop changes
   useEffect(() => {
     if (voiceURI && voices.length > 0) {
       const match = voices.find((v) => v.voiceURI === voiceURI);
@@ -142,60 +175,81 @@ export function useSpeechSynthesis({
     }
   }, [voiceURI, voices]);
 
+  // Direct programmatic voice selector
+  const selectVoiceByURI = useCallback((targetURI: string) => {
+    if (!targetURI) return;
+    const match = voices.find((v) => v.voiceURI === targetURI);
+    if (match) {
+      setSelectedVoice(match);
+      if (onVoiceAutoSelect) {
+        onVoiceAutoSelect(match.voiceURI);
+      }
+    }
+  }, [voices, onVoiceAutoSelect]);
+
   const speak = useCallback(
     (text: string, onEndCallback?: () => void) => {
-      if (!isSupported || !text.trim()) return;
+      if (!isSupported || !text || !text.trim()) return;
 
-      window.speechSynthesis.cancel();
+      try {
+        window.speechSynthesis.cancel();
 
-      // Clean text of formatting artifacts before speaking
-      const cleanText = text
-        .replace(/[*_#`~[\]]/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim();
+        // Clean text of markdown/formatting before speaking
+        const cleanText = text
+          .replace(/[*_#`~[\]]/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim();
 
-      const utterance = new SpeechSynthesisUtterance(cleanText);
-      utteranceRef.current = utterance;
+        if (!cleanText) return;
 
-      // Use selected natural voice or best ChatGPT match
-      let voiceToUse = selectedVoice;
-      if (!voiceToUse && voices.length > 0) {
-        voiceToUse = findBestVoiceForChatGpt(voices, 'chatgpt-natural');
-      }
+        const utterance = new SpeechSynthesisUtterance(cleanText);
+        utteranceRef.current = utterance;
 
-      if (voiceToUse) {
-        utterance.voice = voiceToUse;
-        utterance.lang = voiceToUse.lang || 'pt-BR';
-      } else {
-        utterance.lang = 'pt-BR';
-      }
+        // Use selected natural voice or best ChatGPT match
+        let voiceToUse = selectedVoice;
+        if (!voiceToUse && voices.length > 0) {
+          voiceToUse = findBestVoiceForChatGpt(voices, 'chatgpt-natural');
+        }
 
-      // ChatGPT parameters: slightly brisk (1.05) and warm, pleasant pitch (1.02)
-      utterance.rate = Math.max(0.6, Math.min(1.8, rate || 1.05));
-      utterance.pitch = Math.max(0.6, Math.min(1.4, pitch || 1.02));
+        if (voiceToUse) {
+          utterance.voice = voiceToUse;
+          utterance.lang = voiceToUse.lang || 'pt-BR';
+        } else {
+          utterance.lang = 'pt-BR';
+        }
 
-      utterance.onstart = () => {
-        setIsSpeaking(true);
-      };
+        // ChatGPT parameters: slightly brisk (1.05) and warm pitch (1.02)
+        utterance.rate = Math.max(0.6, Math.min(1.8, rate || 1.05));
+        utterance.pitch = Math.max(0.6, Math.min(1.4, pitch || 1.02));
 
-      utterance.onend = () => {
+        utterance.onstart = () => {
+          setIsSpeaking(true);
+        };
+
+        utterance.onend = () => {
+          setIsSpeaking(false);
+          if (onEndCallback) onEndCallback();
+        };
+
+        utterance.onerror = (e) => {
+          console.warn('SpeechSynthesis error:', e);
+          setIsSpeaking(false);
+        };
+
+        window.speechSynthesis.speak(utterance);
+      } catch (err) {
+        console.warn('SpeechSynthesis speak failed:', err);
         setIsSpeaking(false);
-        if (onEndCallback) onEndCallback();
-      };
-
-      utterance.onerror = (e) => {
-        console.warn('SpeechSynthesis error:', e);
-        setIsSpeaking(false);
-      };
-
-      window.speechSynthesis.speak(utterance);
+      }
     },
     [isSupported, selectedVoice, voices, rate, pitch]
   );
 
   const cancel = useCallback(() => {
     if (isSupported && typeof window !== 'undefined' && window.speechSynthesis) {
-      window.speechSynthesis.cancel();
+      try {
+        window.speechSynthesis.cancel();
+      } catch {}
       setIsSpeaking(false);
     }
   }, [isSupported]);
@@ -203,8 +257,10 @@ export function useSpeechSynthesis({
   // Select ChatGPT optimized voice persona
   const setChatGptPersona = useCallback(
     (persona: 'chatgpt-natural' | 'chatgpt-masculino' = 'chatgpt-natural') => {
-      if (voices.length === 0) return null;
-      const best = findBestVoiceForChatGpt(voices, persona);
+      const currentList = voices.length > 0 ? voices : (typeof window !== 'undefined' && 'speechSynthesis' in window ? window.speechSynthesis.getVoices() : []);
+      if (!currentList || currentList.length === 0) return null;
+
+      const best = findBestVoiceForChatGpt(currentList, persona);
       if (best) {
         setSelectedVoice(best);
         if (onVoiceAutoSelect) {
@@ -222,6 +278,7 @@ export function useSpeechSynthesis({
     voices,
     selectedVoice,
     setSelectedVoice,
+    selectVoiceByURI,
     setChatGptPersona,
     speak,
     cancel,

@@ -9,6 +9,7 @@ interface AjustesModalProps {
   onClose: () => void;
   voices?: SpeechSynthesisVoice[];
   selectedVoice?: SpeechSynthesisVoice | null;
+  onSelectVoice?: (voiceURI: string) => void;
   onSelectChatGptPersona?: (persona: 'chatgpt-natural' | 'chatgpt-masculino') => void;
 }
 
@@ -19,6 +20,7 @@ export const AjustesModal: React.FC<AjustesModalProps> = ({
   onClose,
   voices = [],
   selectedVoice,
+  onSelectVoice,
   onSelectChatGptPersona,
 }) => {
   const updateSetting = <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => {
@@ -183,25 +185,33 @@ export const AjustesModal: React.FC<AjustesModalProps> = ({
             </button>
           </div>
 
-          {/* Voice Dropdown if multiple voices available */}
-          {ptVoices.length > 0 && (
-            <div className="space-y-1 pt-1">
-              <label className="text-[11px] font-bold text-stone-800 block">
-                Selecionar Voz Instalada no Dispositivo:
-              </label>
+          {/* Voice Dropdown */}
+          <div className="space-y-1 pt-1">
+            <label className="text-[11px] font-bold text-stone-800 block">
+              Selecionar Voz Instalada no Dispositivo ({voices.length > 0 ? `${voices.length} detectadas` : 'Carregando...'}):
+            </label>
+            {voices.length > 0 ? (
               <select
-                value={settings.selectedVoiceURI || (selectedVoice?.voiceURI ?? '')}
-                onChange={(e) => updateSetting('selectedVoiceURI', e.target.value)}
-                className="w-full text-xs font-semibold p-2.5 rounded-xl bg-white border border-orange-300 text-black focus:outline-none focus:ring-2 focus:ring-orange-400"
+                value={selectedVoice?.voiceURI || settings.selectedVoiceURI || (voices[0]?.voiceURI ?? '')}
+                onChange={(e) => {
+                  const uri = e.target.value;
+                  updateSetting('selectedVoiceURI', uri);
+                  if (onSelectVoice) onSelectVoice(uri);
+                }}
+                className="w-full text-xs font-semibold p-2.5 rounded-xl bg-white border border-orange-300 text-black focus:outline-none focus:ring-2 focus:ring-orange-400 cursor-pointer"
               >
-                {ptVoices.map((v) => (
+                {(ptVoices.length > 0 ? ptVoices : voices).map((v) => (
                   <option key={v.voiceURI} value={v.voiceURI}>
                     {v.name} ({v.lang})
                   </option>
                 ))}
               </select>
-            </div>
-          )}
+            ) : (
+              <p className="text-xs text-stone-500 italic p-2 bg-white rounded-lg border border-orange-200">
+                Aguardando navegador inicializar as vozes do sistema...
+              </p>
+            )}
+          </div>
 
           {/* Voice Speed Slider */}
           <div className="space-y-1.5 pt-2 border-t border-orange-200">
