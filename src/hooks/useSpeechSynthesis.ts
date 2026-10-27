@@ -100,10 +100,16 @@ export function useSpeechSynthesis({
   const [selectedVoice, setSelectedVoice] = useState<SpeechSynthesisVoice | null>(null);
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const currentVoiceURIRef = useRef(voiceURI);
+  const onVoiceAutoSelectRef = useRef(onVoiceAutoSelect);
+  const autoSelectedOnceRef = useRef(false);
 
   useEffect(() => {
     currentVoiceURIRef.current = voiceURI;
   }, [voiceURI]);
+
+  useEffect(() => {
+    onVoiceAutoSelectRef.current = onVoiceAutoSelect;
+  }, [onVoiceAutoSelect]);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
@@ -123,15 +129,19 @@ export function useSpeechSynthesis({
             targetVoice = availableVoices.find((v) => v.voiceURI === currentVoiceURIRef.current) || null;
           }
 
-          // 2. Otherwise auto-select the best ChatGPT-like voice
+          // 2. Otherwise auto-select the best ChatGPT-like voice (only once to avoid loops)
           if (!targetVoice) {
             targetVoice = findBestVoiceForChatGpt(availableVoices, 'chatgpt-natural');
-            if (targetVoice && onVoiceAutoSelect) {
-              onVoiceAutoSelect(targetVoice.voiceURI);
+            if (targetVoice && !autoSelectedOnceRef.current) {
+              autoSelectedOnceRef.current = true;
+              onVoiceAutoSelectRef.current?.(targetVoice.voiceURI);
             }
           }
 
-          setSelectedVoice(targetVoice || availableVoices[0] || null);
+          setSelectedVoice((prev) => {
+            const nextVoice = targetVoice || availableVoices[0] || null;
+            return prev?.voiceURI === nextVoice?.voiceURI ? prev : nextVoice;
+          });
         } catch (e) {
           console.warn('Error reading speechSynthesis voices:', e);
         }
@@ -163,14 +173,14 @@ export function useSpeechSynthesis({
         }
       };
     }
-  }, [onVoiceAutoSelect]);
+  }, []);
 
-  // Sync selectedVoice when voiceURI prop changes
+  // Sync selectedVoice when voiceURI prop changes without creating loops
   useEffect(() => {
     if (voiceURI && voices.length > 0) {
       const match = voices.find((v) => v.voiceURI === voiceURI);
       if (match) {
-        setSelectedVoice(match);
+        setSelectedVoice((prev) => (prev?.voiceURI === match.voiceURI ? prev : match));
       }
     }
   }, [voiceURI, voices]);
@@ -180,12 +190,10 @@ export function useSpeechSynthesis({
     if (!targetURI) return;
     const match = voices.find((v) => v.voiceURI === targetURI);
     if (match) {
-      setSelectedVoice(match);
-      if (onVoiceAutoSelect) {
-        onVoiceAutoSelect(match.voiceURI);
-      }
+      setSelectedVoice((prev) => (prev?.voiceURI === match.voiceURI ? prev : match));
+      onVoiceAutoSelectRef.current?.(match.voiceURI);
     }
-  }, [voices, onVoiceAutoSelect]);
+  }, [voices]);
 
   const speak = useCallback(
     (text: string, onEndCallback?: () => void) => {

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Volume2, 
   Mic, 
@@ -163,6 +163,20 @@ export default function App() {
     }
   }, [settings.contrastTheme, settings.accessibleFont]);
 
+  const handleVoiceAutoSelect = useCallback((uri: string) => {
+    setSettings((prev) => {
+      if (prev.selectedVoiceURI === uri) return prev;
+      if (!prev.selectedVoiceURI) {
+        const updated = { ...prev, selectedVoiceURI: uri };
+        try {
+          localStorage.setItem('ponte_app_settings', JSON.stringify(updated));
+        } catch {}
+        return updated;
+      }
+      return prev;
+    });
+  }, []);
+
   // Speech Synthesis Hook
   const {
     isSupported: isTtsSupported,
@@ -177,18 +191,7 @@ export default function App() {
     rate: settings.voiceRate,
     pitch: settings.voicePitch,
     voiceURI: settings.selectedVoiceURI,
-    onVoiceAutoSelect: (uri) => {
-      setSettings((prev) => {
-        if (!prev.selectedVoiceURI) {
-          const updated = { ...prev, selectedVoiceURI: uri };
-          try {
-            localStorage.setItem('ponte_app_settings', JSON.stringify(updated));
-          } catch {}
-          return updated;
-        }
-        return prev;
-      });
-    },
+    onVoiceAutoSelect: handleVoiceAutoSelect,
   });
 
   // Speech Recognition Hook
