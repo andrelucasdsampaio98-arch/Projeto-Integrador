@@ -1,16 +1,18 @@
 import React from 'react';
-import { Sliders, Volume2, Type, Eye, Smartphone, RotateCcw, Check, Sparkles, X, Bot } from 'lucide-react';
+import { Sliders, Volume2, VolumeX, Type, Eye, Smartphone, RotateCcw, Check, Sparkles, X, Bot } from 'lucide-react';
 import { AppSettings, FontSize, ContrastTheme } from '../types';
 
 interface AjustesModalProps {
   settings: AppSettings;
   setSettings: React.Dispatch<React.SetStateAction<AppSettings>>;
-  speak: (text: string) => void;
+  speak: (text: string, onEndCallback?: () => void, overrideVoiceURI?: string) => void;
   onClose: () => void;
   voices?: SpeechSynthesisVoice[];
   selectedVoice?: SpeechSynthesisVoice | null;
   onSelectVoice?: (voiceURI: string) => void;
   onSelectChatGptPersona?: (persona: 'chatgpt-natural' | 'chatgpt-masculino') => void;
+  isSpeaking?: boolean;
+  cancelSpeak?: () => void;
 }
 
 export const AjustesModal: React.FC<AjustesModalProps> = ({
@@ -22,6 +24,8 @@ export const AjustesModal: React.FC<AjustesModalProps> = ({
   selectedVoice,
   onSelectVoice,
   onSelectChatGptPersona,
+  isSpeaking = false,
+  cancelSpeak,
 }) => {
   const updateSetting = <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => {
     setSettings((prev) => {
@@ -161,51 +165,73 @@ export const AjustesModal: React.FC<AjustesModalProps> = ({
             <button
               type="button"
               onClick={() => {
-                if (onSelectChatGptPersona) onSelectChatGptPersona('chatgpt-natural');
-                updateSetting('voiceRate', 1.05);
-                updateSetting('voicePitch', 1.02);
+                if (onSelectChatGptPersona) {
+                  onSelectChatGptPersona('chatgpt-natural');
+                  speak('Olá! Voz feminina estilo ChatGPT ativada.');
+                }
               }}
-              className="p-2.5 rounded-xl bg-white hover:bg-orange-100 border border-orange-300 text-left transition shadow-2xs"
+              className="p-2.5 rounded-xl bg-white hover:bg-orange-100 border border-orange-300 text-left transition shadow-2xs cursor-pointer"
             >
-              <strong className="block text-xs font-black text-stone-950">Voz Feminina (Francisca)</strong>
+              <div className="flex items-center gap-1 mb-0.5">
+                <Sparkles className="h-3.5 w-3.5 text-orange-600" />
+                <strong className="block text-xs font-black text-stone-950">Voz Feminina (Francisca)</strong>
+              </div>
               <span className="text-[11px] text-stone-600">Fluida, suave e expressiva</span>
             </button>
 
             <button
               type="button"
               onClick={() => {
-                if (onSelectChatGptPersona) onSelectChatGptPersona('chatgpt-masculino');
-                updateSetting('voiceRate', 1.05);
-                updateSetting('voicePitch', 1.0);
+                if (onSelectChatGptPersona) {
+                  onSelectChatGptPersona('chatgpt-masculino');
+                  speak('Olá! Voz masculina estilo ChatGPT ativada.');
+                }
               }}
-              className="p-2.5 rounded-xl bg-white hover:bg-orange-100 border border-orange-300 text-left transition shadow-2xs"
+              className="p-2.5 rounded-xl bg-white hover:bg-orange-100 border border-orange-300 text-left transition shadow-2xs cursor-pointer"
             >
-              <strong className="block text-xs font-black text-stone-950">Voz Masculina (Antonio)</strong>
+              <div className="flex items-center gap-1 mb-0.5">
+                <Sparkles className="h-3.5 w-3.5 text-orange-600" />
+                <strong className="block text-xs font-black text-stone-950">Voz Masculina (Antonio)</strong>
+              </div>
               <span className="text-[11px] text-stone-600">Clara, articulada e amigável</span>
             </button>
           </div>
 
-          {/* Voice Dropdown */}
-          <div className="space-y-1 pt-1">
+          {/* Voice Dropdown + Instant Test Button */}
+          <div className="space-y-1.5 pt-1">
             <label className="text-[11px] font-bold text-stone-800 block">
               Selecionar Voz Instalada no Dispositivo ({voices.length > 0 ? `${voices.length} detectadas` : 'Carregando...'}):
             </label>
             {voices.length > 0 ? (
-              <select
-                value={selectedVoice?.voiceURI || settings.selectedVoiceURI || (voices[0]?.voiceURI ?? '')}
-                onChange={(e) => {
-                  const uri = e.target.value;
-                  updateSetting('selectedVoiceURI', uri);
-                  if (onSelectVoice) onSelectVoice(uri);
-                }}
-                className="w-full text-xs font-semibold p-2.5 rounded-xl bg-white border border-orange-300 text-black focus:outline-none focus:ring-2 focus:ring-orange-400 cursor-pointer"
-              >
-                {(ptVoices.length > 0 ? ptVoices : voices).map((v) => (
-                  <option key={v.voiceURI} value={v.voiceURI}>
-                    {v.name} ({v.lang})
-                  </option>
-                ))}
-              </select>
+              <div className="flex gap-2 items-center">
+                <select
+                  value={selectedVoice?.voiceURI || settings.selectedVoiceURI || (voices[0]?.voiceURI ?? '')}
+                  onChange={(e) => {
+                    const uri = e.target.value;
+                    if (onSelectVoice) onSelectVoice(uri);
+                  }}
+                  className="flex-1 text-xs font-semibold p-2.5 rounded-xl bg-white border border-orange-300 text-black focus:outline-none focus:ring-2 focus:ring-orange-400 cursor-pointer"
+                >
+                  {(ptVoices.length > 0 ? ptVoices : voices).map((v, idx) => (
+                    <option key={`${v.voiceURI}-${idx}`} value={v.voiceURI}>
+                      {v.name} ({v.lang})
+                    </option>
+                  ))}
+                </select>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const targetURI = selectedVoice?.voiceURI || settings.selectedVoiceURI || (voices[0]?.voiceURI ?? '');
+                    speak('Olá! Testando a voz selecionada agora.', undefined, targetURI);
+                  }}
+                  className="px-3 py-2.5 rounded-xl bg-orange-300 hover:bg-orange-400 text-stone-900 font-black text-xs transition border border-orange-400 shadow-2xs shrink-0 flex items-center gap-1 cursor-pointer"
+                  title="Testar a voz selecionada no menu"
+                >
+                  <Volume2 className="h-3.5 w-3.5" />
+                  <span>Testar</span>
+                </button>
+              </div>
             ) : (
               <p className="text-xs text-stone-500 italic p-2 bg-white rounded-lg border border-orange-200">
                 Aguardando navegador inicializar as vozes do sistema...
@@ -240,17 +266,28 @@ export const AjustesModal: React.FC<AjustesModalProps> = ({
                 updateSetting('voiceRate', 1.05);
                 updateSetting('voicePitch', 1.02);
               }}
-              className="text-[11px] text-orange-950 underline font-bold"
+              className="text-[11px] text-orange-950 underline font-bold cursor-pointer"
             >
               Redefinir para 1.05x (ChatGPT)
             </button>
 
-            <button
-              onClick={() => speak('Olá! Esta é a voz configurada no estilo ChatGPT para falar por mim com máxima clareza e naturalidade.')}
-              className="text-xs text-stone-900 bg-orange-300 hover:bg-orange-400 font-black flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-orange-400 shadow-2xs transition"
-            >
-              <Volume2 className="h-3.5 w-3.5" /> Testar Voz Agora
-            </button>
+            {isSpeaking ? (
+              <button
+                type="button"
+                onClick={cancelSpeak}
+                className="text-xs text-white bg-rose-600 hover:bg-rose-500 font-black flex items-center gap-1.5 px-3 py-1.5 rounded-xl shadow-2xs transition animate-pulse cursor-pointer"
+              >
+                <VolumeX className="h-3.5 w-3.5" /> Parar Áudio
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => speak('Olá! Esta é a voz configurada no estilo ChatGPT para falar por mim com máxima clareza e naturalidade.')}
+                className="text-xs text-stone-900 bg-orange-300 hover:bg-orange-400 font-black flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-orange-400 shadow-2xs transition cursor-pointer"
+              >
+                <Volume2 className="h-3.5 w-3.5" /> Testar Voz Agora
+              </button>
+            )}
           </div>
         </div>
 

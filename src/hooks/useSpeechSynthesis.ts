@@ -47,7 +47,7 @@ export function findBestVoiceForChatGpt(
     if (lang === 'pt-br') score += 40;
     else if (lang.startsWith('pt')) score += 20;
 
-    // High quality Neural / Natural indicators (same neural models as ChatGPT)
+    // High quality Neural / Natural indicators (same neural models as modern conversational AI)
     if (name.includes('natural') || uri.includes('natural')) score += 70;
     if (name.includes('neural') || uri.includes('neural')) score += 70;
     if (name.includes('online') || uri.includes('online')) score += 35;
@@ -96,12 +96,14 @@ export function useSpeechSynthesis({
 }: UseSpeechSynthesisProps = {}) {
   const [isSupported, setIsSupported] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [speakingText, setSpeakingText] = useState<string | null>(null);
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [selectedVoice, setSelectedVoice] = useState<SpeechSynthesisVoice | null>(null);
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const currentVoiceURIRef = useRef(voiceURI);
   const onVoiceAutoSelectRef = useRef(onVoiceAutoSelect);
   const autoSelectedOnceRef = useRef(false);
+  const resumeIntervalRef = useRef<number | null>(null);
 
   useEffect(() => {
     currentVoiceURIRef.current = voiceURI;
@@ -111,6 +113,7 @@ export function useSpeechSynthesis({
     onVoiceAutoSelectRef.current = onVoiceAutoSelect;
   }, [onVoiceAutoSelect]);
 
+  // Load and sync voices
   useEffect(() => {
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       setIsSupported(true);
@@ -129,11 +132,12 @@ export function useSpeechSynthesis({
             targetVoice = availableVoices.find((v) => v.voiceURI === currentVoiceURIRef.current) || null;
           }
 
-          // 2. Otherwise auto-select the best ChatGPT-like voice (only once to avoid loops)
+          // 2. Otherwise auto-select the best ChatGPT-like voice
           if (!targetVoice) {
             targetVoice = findBestVoiceForChatGpt(availableVoices, 'chatgpt-natural');
             if (targetVoice && !autoSelectedOnceRef.current) {
               autoSelectedOnceRef.current = true;
+              currentVoiceURIRef.current = targetVoice.voiceURI;
               onVoiceAutoSelectRef.current?.(targetVoice.voiceURI);
             }
           }
@@ -147,35 +151,41 @@ export function useSpeechSynthesis({
         }
       };
 
-      // 1. Initial immediate attempt
+      // 1. Initial attempt
       updateVoices();
 
       // 2. Browser event listener
       window.speechSynthesis.onvoiceschanged = updateVoices;
+      if (typeof window.speechSynthesis.addEventListener === 'function') {
+        window.speechSynthesis.addEventListener('voiceschanged', updateVoices);
+      }
 
       // 3. Fallback active polling (essential for Chrome, Android & Safari where voices load asynchronously)
       let pollCount = 0;
-      const pollInterval = setInterval(() => {
+      const pollInterval = window.setInterval(() => {
         pollCount++;
         const currentVoices = window.speechSynthesis.getVoices();
         if (currentVoices && currentVoices.length > 0) {
           updateVoices();
-          clearInterval(pollInterval);
-        } else if (pollCount > 25) {
-          clearInterval(pollInterval);
+          window.clearInterval(pollInterval);
+        } else if (pollCount > 30) {
+          window.clearInterval(pollInterval);
         }
-      }, 150);
+      }, 100);
 
       return () => {
-        clearInterval(pollInterval);
-        if (window.speechSynthesis) {
-          window.speechSynthesis.cancel();
+        window.clearInterval(pollInterval);
+        if (typeof window.speechSynthesis.removeEventListener === 'function') {
+          window.speechSynthesis.removeEventListener('voiceschanged', updateVoices);
+        }
+        if (resumeIntervalRef.current) {
+          window.clearInterval(resumeIntervalRef.current);
         }
       };
     }
   }, []);
 
-  // Sync selectedVoice when voiceURI prop changes without creating loops
+  // Sync selectedVoice when voiceURI prop changes
   useEffect(() => {
     if (voiceURI && voices.length > 0) {
       const match = voices.find((v) => v.voiceURI === voiceURI);
@@ -185,22 +195,65 @@ export function useSpeechSynthesis({
     }
   }, [voiceURI, voices]);
 
-  // Direct programmatic voice selector
+  // Programmatic voice selector by URI
   const selectVoiceByURI = useCallback((targetURI: string) => {
     if (!targetURI) return;
-    const match = voices.find((v) => v.voiceURI === targetURI);
+    currentVoiceURIRef.current = targetURI;
+    const currentList = voices.length > 0 
+      ? voices 
+      : (typeof window !== 'undefined' && 'speechSynthesis' in window ? window.speechSynthesis.getVoices() : []);
+    const match = currentList.find((v) => v.voiceURI === targetURI);
     if (match) {
-      setSelectedVoice((prev) => (prev?.voiceURI === match.voiceURI ? prev : match));
+      setSelectedVoice(match);
       onVoiceAutoSelectRef.current?.(match.voiceURI);
     }
   }, [voices]);
 
-  const speak = useCallback(
-    (text: string, onEndCallback?: () => void) => {
-      if (!isSupported || !text || !text.trim()) return;
+  // Select ChatGPT optimized voice persona
+  const setChatGptPersona = useCallback(
+    (persona: 'chatgpt-natural' | 'chatgpt-masculino' = 'chatgpt-natural'): SpeechSynthesisVoice | null => {
+      const currentList = voices.length > 0 
+        ? voices 
+        : (typeof window !== 'undefined' && 'speechSynthesis' in window ? window.speechSynthesis.getVoices() : []);
+      if (!currentList || currentList.length === 0) return null;
 
+      const best = findBestVoiceForChatGpt(currentList, persona);
+      if (best) {
+        setSelectedVoice(best);
+        currentVoiceURIRef.current = best.voiceURI;
+        onVoiceAutoSelectRef.current?.(best.voiceURI);
+      }
+      return best;
+    },
+    [voices]
+  );
+
+  const cancel = useCallback(() => {
+    if (isSupported && typeof window !== 'undefined' && window.speechSynthesis) {
       try {
         window.speechSynthesis.cancel();
+        delete (window as any).__activeSpeechUtterance;
+      } catch {}
+      if (resumeIntervalRef.current) {
+        window.clearInterval(resumeIntervalRef.current);
+        resumeIntervalRef.current = null;
+      }
+      setIsSpeaking(false);
+      setSpeakingText(null);
+    }
+  }, [isSupported]);
+
+  const speak = useCallback(
+    (text: string, onEndCallback?: () => void, overrideVoiceURI?: string) => {
+      if (!isSupported || typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+      if (!text || !text.trim()) return;
+
+      try {
+        // Clear any previous interval
+        if (resumeIntervalRef.current) {
+          window.clearInterval(resumeIntervalRef.current);
+          resumeIntervalRef.current = null;
+        }
 
         // Clean text of markdown/formatting before speaking
         const cleanText = text
@@ -210,79 +263,114 @@ export function useSpeechSynthesis({
 
         if (!cleanText) return;
 
+        // Ensure available voices are retrieved even if state was delayed
+        const freshVoices = window.speechSynthesis.getVoices();
+        const availableVoices = freshVoices && freshVoices.length > 0 ? freshVoices : voices;
+
+        // Target voice resolution order:
+        // 1. Explicit overrideVoiceURI passed directly to speak()
+        // 2. Ref from most recent user selection
+        // 3. React selectedVoice state
+        // 4. Best ChatGPT match
+        const targetURI = overrideVoiceURI || currentVoiceURIRef.current || selectedVoice?.voiceURI;
+        let voiceToUse: SpeechSynthesisVoice | null = null;
+
+        if (targetURI && availableVoices.length > 0) {
+          voiceToUse = availableVoices.find((v) => v.voiceURI === targetURI) || null;
+        }
+        if (!voiceToUse && selectedVoice) {
+          voiceToUse = selectedVoice;
+        }
+        if (!voiceToUse && availableVoices.length > 0) {
+          voiceToUse = findBestVoiceForChatGpt(availableVoices, 'chatgpt-natural');
+        }
+
         const utterance = new SpeechSynthesisUtterance(cleanText);
         utteranceRef.current = utterance;
 
-        // Use selected natural voice or best ChatGPT match
-        let voiceToUse = selectedVoice;
-        if (!voiceToUse && voices.length > 0) {
-          voiceToUse = findBestVoiceForChatGpt(voices, 'chatgpt-natural');
-        }
-
         if (voiceToUse) {
           utterance.voice = voiceToUse;
-          utterance.lang = voiceToUse.lang || 'pt-BR';
+          utterance.lang = (voiceToUse.lang || 'pt-BR').replace('_', '-');
         } else {
           utterance.lang = 'pt-BR';
         }
 
-        // ChatGPT parameters: slightly brisk (1.05) and warm pitch (1.02)
+        // Explicit full volume
+        utterance.volume = 1.0;
+
+        // ChatGPT parameters: natural conversational speed (1.05) and warm pitch (1.02)
         utterance.rate = Math.max(0.6, Math.min(1.8, rate || 1.05));
         utterance.pitch = Math.max(0.6, Math.min(1.4, pitch || 1.02));
 
+        // Keep strong reference on window to prevent Garbage Collection in Chromium
+        (window as any).__activeSpeechUtterance = utterance;
+
+        const cleanup = () => {
+          setIsSpeaking(false);
+          setSpeakingText(null);
+          delete (window as any).__activeSpeechUtterance;
+          if (resumeIntervalRef.current) {
+            window.clearInterval(resumeIntervalRef.current);
+            resumeIntervalRef.current = null;
+          }
+        };
+
         utterance.onstart = () => {
           setIsSpeaking(true);
+          setSpeakingText(cleanText);
         };
 
         utterance.onend = () => {
-          setIsSpeaking(false);
+          cleanup();
           if (onEndCallback) onEndCallback();
         };
 
         utterance.onerror = (e) => {
-          console.warn('SpeechSynthesis error:', e);
-          setIsSpeaking(false);
+          console.warn('SpeechSynthesis utterance error:', e);
+          cleanup();
         };
 
+        // Reset and unpause speech synthesis engine
+        try {
+          window.speechSynthesis.cancel();
+          window.speechSynthesis.resume();
+        } catch {}
+
+        // Speak utterance
         window.speechSynthesis.speak(utterance);
+
+        // Immediate unpause for Chromium iframe/background policy
+        try {
+          window.speechSynthesis.resume();
+        } catch {}
+
+        // Anti-freeze heartbeat: Chromium has a known 15s pause bug during continuous speech
+        resumeIntervalRef.current = window.setInterval(() => {
+          if (typeof window === 'undefined' || !window.speechSynthesis) {
+            if (resumeIntervalRef.current) window.clearInterval(resumeIntervalRef.current);
+            return;
+          }
+          if (window.speechSynthesis.paused) {
+            window.speechSynthesis.resume();
+          }
+          if (!window.speechSynthesis.speaking && !window.speechSynthesis.pending) {
+            cleanup();
+          }
+        }, 200);
+
       } catch (err) {
         console.warn('SpeechSynthesis speak failed:', err);
         setIsSpeaking(false);
+        setSpeakingText(null);
       }
     },
     [isSupported, selectedVoice, voices, rate, pitch]
   );
 
-  const cancel = useCallback(() => {
-    if (isSupported && typeof window !== 'undefined' && window.speechSynthesis) {
-      try {
-        window.speechSynthesis.cancel();
-      } catch {}
-      setIsSpeaking(false);
-    }
-  }, [isSupported]);
-
-  // Select ChatGPT optimized voice persona
-  const setChatGptPersona = useCallback(
-    (persona: 'chatgpt-natural' | 'chatgpt-masculino' = 'chatgpt-natural') => {
-      const currentList = voices.length > 0 ? voices : (typeof window !== 'undefined' && 'speechSynthesis' in window ? window.speechSynthesis.getVoices() : []);
-      if (!currentList || currentList.length === 0) return null;
-
-      const best = findBestVoiceForChatGpt(currentList, persona);
-      if (best) {
-        setSelectedVoice(best);
-        if (onVoiceAutoSelect) {
-          onVoiceAutoSelect(best.voiceURI);
-        }
-      }
-      return best;
-    },
-    [voices, onVoiceAutoSelect]
-  );
-
   return {
     isSupported,
     isSpeaking,
+    speakingText,
     voices,
     selectedVoice,
     setSelectedVoice,

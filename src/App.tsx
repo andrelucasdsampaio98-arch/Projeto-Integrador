@@ -579,6 +579,8 @@ export default function App() {
           settings={settings}
           setSettings={setSettings}
           speak={speak}
+          isSpeaking={isSpeaking}
+          cancelSpeak={cancelSpeak}
           onClose={() => setShowSettings(false)}
           voices={voices}
           selectedVoice={selectedVoice}
