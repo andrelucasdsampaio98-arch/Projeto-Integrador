@@ -185,6 +185,8 @@ export default function App() {
     isSecureOrigin,
     antiRepeatEnabled,
     setAntiRepeatEnabled,
+    strictMode,
+    setStrictMode,
     duplicatesCount,
     startListening,
     stopListening,
@@ -454,8 +456,11 @@ export default function App() {
             settings={settings}
             antiRepeatEnabled={antiRepeatEnabled}
             setAntiRepeatEnabled={setAntiRepeatEnabled}
+            strictMode={strictMode}
+            setStrictMode={setStrictMode}
             duplicatesCount={duplicatesCount}
             optimizeTranscript={optimizeTranscript}
+            speak={speak}
           />
         )}
 

@@ -585,7 +585,7 @@ export const TeacherLessonModal: React.FC<TeacherLessonModalProps> = ({
                   className="text-xs font-black text-black hover:underline flex items-center gap-1"
                 >
                   <Bot className="h-3 w-3" />
-                  <span>Sinalizar no VLibras</span>
+                  <span>Traduzir no VLibras</span>
                 </button>
               </div>
               <textarea

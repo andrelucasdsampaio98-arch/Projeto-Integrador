@@ -102,21 +102,34 @@ export const Mp3VideoLessonPlayer: React.FC<Mp3VideoLessonPlayerProps> = ({
 
   // Invoke the official Government VLibras 3D Avatar
   const triggerVLibrasAvatar = (textToTranslate?: string) => {
-    const text = textToTranslate || mp3Lesson.transcript;
+    const text = (textToTranslate || mp3Lesson.transcript || '').trim();
+    if (!text) return;
 
-    // 1. Copy text to clipboard
+    // 1. Copy only pure text to clipboard (sem botões ou rótulos de interface)
     navigator.clipboard.writeText(text);
     setCopiedTranscript(true);
     setVlibrasNotice(true);
     setTimeout(() => setCopiedTranscript(false), 3000);
     setTimeout(() => setVlibrasNotice(false), 6000);
 
-    // 2. Select text in document so VLibras detection picks it up
+    // 2. Select ONLY the clean text in document so VLibras detection picks it up
     try {
-      const el = document.getElementById('vlibras-active-transcript');
-      if (el) {
+      const container = document.getElementById('vlibras-active-transcript');
+      if (container) {
         const range = document.createRange();
-        range.selectNodeContents(el);
+        if (textToTranslate) {
+          const matchingP = Array.from(container.querySelectorAll('p')).find(
+            (p) => p.textContent?.trim() === textToTranslate.trim()
+          );
+          if (matchingP) {
+            range.selectNodeContents(matchingP);
+          } else {
+            range.selectNodeContents(container);
+          }
+        } else {
+          range.selectNodeContents(container);
+        }
+
         const sel = window.getSelection();
         if (sel) {
           sel.removeAllRanges();
@@ -321,43 +334,50 @@ export const Mp3VideoLessonPlayer: React.FC<Mp3VideoLessonPlayerProps> = ({
           </div>
 
           <button
-            onClick={() => triggerVLibrasAvatar()}
+            onClick={() => {
+              setSelectedSentence(null);
+              triggerVLibrasAvatar();
+            }}
             className="flex items-center gap-1.5 text-xs font-black text-black hover:underline"
+            title="Traduzir o roteiro completo no Boneco 3D do VLibras"
           >
             <Bot className="h-3.5 w-3.5" />
             <span>Traduzir Tudo no VLibras</span>
           </button>
         </div>
 
-        {/* Transcript Box */}
+        <p className="text-[11px] text-slate-500 font-medium">
+          Dica: Clique ou selecione qualquer frase abaixo para que o Boneco do VLibras traduza diretamente o texto da aula.
+        </p>
+
+        {/* Transcript Box - Apenas texto limpo sem botões no fluxo do texto */}
         <div 
           id="vlibras-active-transcript"
-          className="rounded-xl border border-slate-200 bg-white p-4 text-sm font-medium leading-relaxed text-black shadow-xs space-y-2.5"
+          className="rounded-xl border border-slate-200 bg-white p-4 text-sm font-medium leading-relaxed text-black shadow-xs space-y-2 select-text"
         >
           {sentences.length > 0 ? (
-            sentences.map((sentence, idx) => (
-              <div 
-                key={idx}
-                className="group flex items-start justify-between gap-3 p-2 rounded-lg hover:bg-slate-50 transition border border-transparent hover:border-slate-200"
-              >
-                <p className="text-black text-sm leading-relaxed">
-                  {sentence}
-                </p>
-                <button
+            sentences.map((sentence, idx) => {
+              const isSelected = selectedSentence === sentence;
+              return (
+                <p 
+                  key={idx}
                   onClick={() => {
                     setSelectedSentence(sentence);
                     triggerVLibrasAvatar(sentence);
                   }}
-                  className="opacity-80 group-hover:opacity-100 shrink-0 flex items-center gap-1 px-2 py-1 rounded-md bg-slate-100 hover:bg-black hover:text-white text-black border border-slate-300 text-[11px] font-black transition"
-                  title="Traduzir apenas esta frase no Boneco do VLibras"
+                  className={`p-2.5 rounded-lg cursor-pointer transition-colors leading-relaxed ${
+                    isSelected 
+                      ? 'bg-orange-100 text-orange-950 font-semibold ring-1 ring-orange-300' 
+                      : 'hover:bg-slate-50 text-black'
+                  }`}
+                  title="Clique nesta frase para o Boneco 3D do VLibras traduzir apenas ela"
                 >
-                  <Bot className="h-3 w-3" />
-                  <span>Sinalizar</span>
-                </button>
-              </div>
-            ))
+                  {sentence}
+                </p>
+              );
+            })
           ) : (
-            <p className="text-black">{mp3Lesson.transcript || 'Sem transcrição cadastrada para esta videoaula.'}</p>
+            <p className="text-black p-2">{mp3Lesson.transcript || 'Sem transcrição cadastrada para esta videoaula.'}</p>
           )}
         </div>
 

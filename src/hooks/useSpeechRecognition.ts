@@ -2,7 +2,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   mergeTranscriptWithOverlap, 
   cleanRepeatedWords, 
-  sanitizeInterimTranscript 
+  sanitizeInterimTranscript,
+  polishSentences 
 } from '../utils/speechDeduplication';
 
 // Declare types for Web Speech API SpeechRecognition
@@ -19,6 +20,7 @@ export function useSpeechRecognition() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSecureOrigin, setIsSecureOrigin] = useState(true);
   const [antiRepeatEnabled, setAntiRepeatEnabled] = useState(true);
+  const [strictMode, setStrictMode] = useState(true);
   const [duplicatesCount, setDuplicatesCount] = useState(0);
 
   const recognitionRef = useRef<any>(null);
@@ -26,10 +28,15 @@ export function useSpeechRecognition() {
   const lastProcessedIndexRef = useRef<number>(-1);
   const transcriptRef = useRef<string>('');
   const antiRepeatEnabledRef = useRef(antiRepeatEnabled);
+  const strictModeRef = useRef(strictMode);
 
   useEffect(() => {
     antiRepeatEnabledRef.current = antiRepeatEnabled;
   }, [antiRepeatEnabled]);
+
+  useEffect(() => {
+    strictModeRef.current = strictMode;
+  }, [strictMode]);
 
   useEffect(() => {
     transcriptRef.current = transcript;
@@ -52,6 +59,7 @@ export function useSpeechRecognition() {
         recognition.continuous = true;
         recognition.interimResults = true;
         recognition.lang = 'pt-BR';
+        recognition.maxAlternatives = 1;
 
         recognition.onstart = () => {
           setIsListening(true);
@@ -62,25 +70,32 @@ export function useSpeechRecognition() {
           let currentInterim = '';
           const newFinalPieces: string[] = [];
 
-          // Process finalized results strictly once per session
-          for (let i = 0; i < event.results.length; i++) {
+          const startIndex = typeof event.resultIndex === 'number' ? event.resultIndex : 0;
+
+          // Process finalized results and interim hypotheses
+          for (let i = startIndex; i < event.results.length; i++) {
             const item = event.results[i];
+            if (!item || !item[0]) continue;
+
+            const text = (item[0].transcript || '').trim();
             if (item.isFinal) {
-              if (i > lastProcessedIndexRef.current) {
+              if (text && i > lastProcessedIndexRef.current) {
                 lastProcessedIndexRef.current = i;
-                newFinalPieces.push(item[0].transcript);
+                newFinalPieces.push(text);
               }
             } else {
-              currentInterim += item[0].transcript + ' ';
+              currentInterim += (item[0].transcript || '') + ' ';
             }
           }
 
+          // If new final chunks arrived, merge with anti-overlap and repetition removal
           if (newFinalPieces.length > 0) {
             const incomingChunk = newFinalPieces.join(' ');
             const { merged, removedOverlapCount } = mergeTranscriptWithOverlap(
               transcriptRef.current,
               incomingChunk,
-              antiRepeatEnabledRef.current
+              antiRepeatEnabledRef.current,
+              strictModeRef.current
             );
             transcriptRef.current = merged;
             setTranscript(merged);
@@ -89,12 +104,17 @@ export function useSpeechRecognition() {
             }
           }
 
-          const sanitizedInterim = sanitizeInterimTranscript(
-            transcriptRef.current,
-            currentInterim,
-            antiRepeatEnabledRef.current
-          );
-          setInterimTranscript(sanitizedInterim);
+          // Sanitize interim text to prevent flickering duplicate words
+          if (currentInterim.trim()) {
+            const sanitizedInterim = sanitizeInterimTranscript(
+              transcriptRef.current,
+              currentInterim,
+              antiRepeatEnabledRef.current
+            );
+            setInterimTranscript(sanitizedInterim);
+          } else {
+            setInterimTranscript('');
+          }
         };
 
         recognition.onerror = (event: any) => {
@@ -172,6 +192,7 @@ export function useSpeechRecognition() {
       }
     }
     setIsListening(false);
+    setInterimTranscript('');
   }, []);
 
   const clearTranscript = useCallback(() => {
@@ -188,9 +209,10 @@ export function useSpeechRecognition() {
   }, []);
 
   const optimizeTranscript = useCallback(() => {
-    const { cleaned, removedCount } = cleanRepeatedWords(transcriptRef.current);
-    transcriptRef.current = cleaned;
-    setTranscript(cleaned);
+    const { cleaned, removedCount } = cleanRepeatedWords(transcriptRef.current, true);
+    const polished = polishSentences(cleaned);
+    transcriptRef.current = polished;
+    setTranscript(polished);
     if (removedCount > 0) {
       setDuplicatesCount((prev) => prev + removedCount);
     }
@@ -205,6 +227,8 @@ export function useSpeechRecognition() {
     isSecureOrigin,
     antiRepeatEnabled,
     setAntiRepeatEnabled,
+    strictMode,
+    setStrictMode,
     duplicatesCount,
     startListening,
     stopListening,

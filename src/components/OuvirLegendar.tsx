@@ -10,12 +10,12 @@ import {
   Sparkles, 
   ShieldCheck, 
   Wand2, 
-  Settings2,
-  Volume2,
-  FileText
+  Volume2, 
+  Bot, 
+  Type, 
+  Sliders 
 } from 'lucide-react';
 import { AppSettings } from '../types';
-import { cleanRepeatedWords } from '../utils/speechDeduplication';
 
 interface OuvirLegendarProps {
   isListening: boolean;
@@ -30,8 +30,11 @@ interface OuvirLegendarProps {
   settings: AppSettings;
   antiRepeatEnabled?: boolean;
   setAntiRepeatEnabled?: (enabled: boolean) => void;
+  strictMode?: boolean;
+  setStrictMode?: (strict: boolean) => void;
   duplicatesCount?: number;
   optimizeTranscript?: () => void;
+  speak?: (text: string) => void;
 }
 
 export const OuvirLegendar: React.FC<OuvirLegendarProps> = ({
@@ -47,16 +50,21 @@ export const OuvirLegendar: React.FC<OuvirLegendarProps> = ({
   settings,
   antiRepeatEnabled = true,
   setAntiRepeatEnabled,
+  strictMode = true,
+  setStrictMode,
   duplicatesCount = 0,
   optimizeTranscript,
+  speak,
 }) => {
   const [copied, setCopied] = useState(false);
   const [justCleaned, setJustCleaned] = useState(false);
-  const [showAntiRepeatInfo, setShowAntiRepeatInfo] = useState(false);
+  const [localFontSize, setLocalFontSize] = useState<'normal' | 'grande' | 'gigante'>(
+    settings.fontSize || 'grande'
+  );
+  const [vlibrasNotice, setVlibrasNotice] = useState(false);
 
-  // Avoid boundary repeats between finalized and interim text
+  // Full clean caption text
   const fullText = transcript + (interimTranscript ? (transcript ? ' ' : '') + interimTranscript : '');
-
   const wordCount = fullText.trim() ? fullText.trim().split(/\s+/).length : 0;
 
   const handleCopy = () => {
@@ -71,6 +79,40 @@ export const OuvirLegendar: React.FC<OuvirLegendarProps> = ({
       optimizeTranscript();
       setJustCleaned(true);
       setTimeout(() => setJustCleaned(false), 2000);
+    }
+  };
+
+  // Trigger official VLibras 3D Avatar with the current captioned text
+  const handleTriggerVLibras = () => {
+    if (!fullText.trim()) return;
+
+    navigator.clipboard.writeText(fullText.trim());
+    setVlibrasNotice(true);
+    setTimeout(() => setVlibrasNotice(false), 5000);
+
+    try {
+      const el = document.getElementById('caption-text-content');
+      if (el) {
+        const range = document.createRange();
+        range.selectNodeContents(el);
+        const sel = window.getSelection();
+        if (sel) {
+          sel.removeAllRanges();
+          sel.addRange(range);
+        }
+      }
+    } catch {
+      // ignore
+    }
+
+    const accessBtn = document.querySelector('[vw-access-button]') as HTMLElement;
+    if (accessBtn) {
+      accessBtn.click();
+    } else {
+      const vw = document.querySelector('[vw]') as HTMLElement;
+      if (vw) {
+        vw.classList.toggle('active');
+      }
     }
   };
 
@@ -129,7 +171,7 @@ export const OuvirLegendar: React.FC<OuvirLegendarProps> = ({
               {/* Anti-Repetition Status Pill */}
               <button
                 onClick={() => setAntiRepeatEnabled && setAntiRepeatEnabled(!antiRepeatEnabled)}
-                title="Clique para alternar o Filtro Anti-Repetição"
+                title="Clique para alternar o Filtro Anti-Repetição Inteligente"
                 className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold transition border ${
                   antiRepeatEnabled
                     ? 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100'
@@ -141,6 +183,22 @@ export const OuvirLegendar: React.FC<OuvirLegendarProps> = ({
                 <span className={`h-2 w-2 rounded-full ${antiRepeatEnabled ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`} />
               </button>
 
+              {/* Strict Mode Toggle (Filtro Turbo) */}
+              {antiRepeatEnabled && setStrictMode && (
+                <button
+                  onClick={() => setStrictMode(!strictMode)}
+                  title="Filtro Turbo: elimina gaguejos, ecos de microfone e repetições consecutivas de 2 a 8 palavras"
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold transition border ${
+                    strictMode
+                      ? 'bg-orange-100 text-orange-950 border-orange-300 shadow-2xs'
+                      : 'bg-slate-100 text-slate-600 border-slate-300 hover:bg-slate-200'
+                  }`}
+                >
+                  <Sparkles className="h-3 w-3 text-orange-600" />
+                  <span>Modo Turbo: {strictMode ? 'Ligado' : 'Básico'}</span>
+                </button>
+              )}
+
               {duplicatesCount > 0 && (
                 <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-300 text-xs font-bold animate-fadeIn">
                   <Sparkles className="h-3 w-3 text-amber-500" />
@@ -150,29 +208,102 @@ export const OuvirLegendar: React.FC<OuvirLegendarProps> = ({
             </div>
 
             <p className="text-xs text-slate-600 mt-1 max-w-2xl">
-              Aproxime o microfone de quem está falando (professor ou colega). O filtro anti-repetição remove automaticamente gaguejos, ecos de microfone e repetições consecutivas de palavras.
+              Aproxime o microfone de quem está falando. O algoritmo inteligente remove automaticamente gaguejos, sobreposições de áudio da Web Speech API, ecos de microfone e repetições de palavras.
             </p>
           </div>
 
-          {/* Action Buttons */}
+          {/* Quick Font Size Switcher for Classroom Reading */}
+          <div className="flex items-center gap-1 bg-slate-100 border border-slate-300 rounded-xl p-1">
+            <span className="text-[10px] font-black uppercase text-slate-500 px-1.5 flex items-center gap-1">
+              <Type className="h-3 w-3" /> Letra:
+            </span>
+            <button
+              onClick={() => setLocalFontSize('normal')}
+              className={`px-2 py-1 rounded-lg text-xs font-bold transition ${
+                localFontSize === 'normal' ? 'bg-black text-white' : 'text-slate-700 hover:bg-slate-200'
+              }`}
+            >
+              A
+            </button>
+            <button
+              onClick={() => setLocalFontSize('grande')}
+              className={`px-2 py-1 rounded-lg text-xs font-black transition ${
+                localFontSize === 'grande' ? 'bg-black text-white' : 'text-slate-700 hover:bg-slate-200'
+              }`}
+            >
+              A+
+            </button>
+            <button
+              onClick={() => setLocalFontSize('gigante')}
+              className={`px-2 py-1 rounded-lg text-xs font-black transition ${
+                localFontSize === 'gigante' ? 'bg-black text-white' : 'text-slate-700 hover:bg-slate-200'
+              }`}
+            >
+              A++
+            </button>
+          </div>
+        </div>
+
+        {/* Action Controls Bar */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center flex-wrap gap-2">
+            {isListening ? (
+              <button
+                onClick={stopListening}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-black text-xs sm:text-sm transition shadow-sm animate-pulse"
+              >
+                <MicOff className="h-4 w-4" />
+                <span>Pausar Escuta</span>
+              </button>
+            ) : (
+              <button
+                onClick={startListening}
+                disabled={!isSupported}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-orange-300 hover:bg-orange-400 text-stone-900 border border-orange-400 font-black text-xs sm:text-sm transition shadow-xs disabled:opacity-40 disabled:pointer-events-none"
+              >
+                <Mic className="h-4 w-4 fill-stone-900" />
+                <span>Começar a Ouvir</span>
+              </button>
+            )}
+
             {fullText && (
               <>
                 <button
                   onClick={handleManualOptimize}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-900 text-xs font-bold transition border border-purple-200"
-                  title="Fazer varredura e remover qualquer palavra duplicada"
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-orange-100 hover:bg-orange-200 text-orange-950 text-xs font-bold transition border border-orange-300 shadow-2xs"
+                  title="Executar limpeza imediata: elimina qualquer repetição residual, vícios de fala e formata pontuação"
                 >
-                  <Wand2 className="h-3.5 w-3.5 text-purple-600" />
-                  {justCleaned ? 'Limpo!' : 'Otimizar Legenda'}
+                  <Wand2 className="h-3.5 w-3.5 text-orange-700" />
+                  <span>{justCleaned ? 'Repetições Limpas!' : 'Limpar Repetições'}</span>
                 </button>
+
+                <button
+                  onClick={handleTriggerVLibras}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-black hover:text-white text-black text-xs font-bold transition border border-slate-300 shadow-2xs"
+                  title="Traduzir o texto da legenda no Boneco 3D do VLibras"
+                >
+                  <Bot className="h-3.5 w-3.5" />
+                  <span>Traduzir no VLibras</span>
+                </button>
+
+                {speak && (
+                  <button
+                    onClick={() => speak(fullText)}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-black text-xs font-bold transition border border-slate-300"
+                    title="Ouvir a legenda em voz alta sintetizada"
+                  >
+                    <Volume2 className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">Ouvir Fala</span>
+                  </button>
+                )}
 
                 <button
                   onClick={handleCopy}
                   className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-black text-xs font-bold transition border border-slate-300"
+                  title="Copiar texto da legenda limpo"
                 >
                   {copied ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
-                  {copied ? 'Copiado!' : 'Copiar'}
+                  <span>{copied ? 'Copiado!' : 'Copiar'}</span>
                 </button>
 
                 <button
@@ -183,25 +314,6 @@ export const OuvirLegendar: React.FC<OuvirLegendarProps> = ({
                   <RotateCcw className="h-4 w-4" />
                 </button>
               </>
-            )}
-
-            {isListening ? (
-              <button
-                onClick={stopListening}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-black text-xs transition shadow-sm animate-pulse"
-              >
-                <MicOff className="h-4 w-4" />
-                Pausar Escuta
-              </button>
-            ) : (
-              <button
-                onClick={startListening}
-                disabled={!isSupported}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-orange-300 hover:bg-orange-400 text-stone-900 border border-orange-400 font-black text-xs transition shadow-xs disabled:opacity-40 disabled:pointer-events-none"
-              >
-                <Mic className="h-4 w-4 fill-stone-900" />
-                Começar a Ouvir
-              </button>
             )}
           </div>
         </div>
@@ -215,7 +327,7 @@ export const OuvirLegendar: React.FC<OuvirLegendarProps> = ({
                 <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-600"></span>
               </span>
               <strong className="font-bold text-stone-900">Microfone ativo:</strong>
-              <span className="hidden sm:inline">Captando fala em português com suavização anti-repetição...</span>
+              <span className="hidden sm:inline">Captando fala em português com filtro profundo anti-repetição...</span>
               <span className="sm:hidden">Ouvindo em tempo real...</span>
             </div>
 
@@ -230,6 +342,21 @@ export const OuvirLegendar: React.FC<OuvirLegendarProps> = ({
           </div>
         )}
 
+        {/* Notice alert when VLibras is triggered from caption */}
+        {vlibrasNotice && (
+          <div className="p-3 rounded-xl bg-slate-50 border border-black flex items-center justify-between gap-3 animate-in fade-in">
+            <div className="flex items-center gap-2">
+              <Bot className="h-4 w-4 text-black shrink-0" />
+              <p className="text-xs font-bold text-black">
+                Texto limpo enviado para o <strong>Boneco do VLibras</strong> no canto da tela!
+              </p>
+            </div>
+            <span className="text-[10px] font-black bg-black text-white px-2 py-0.5 rounded uppercase">
+              Pronto
+            </span>
+          </div>
+        )}
+
         {/* Giant Caption Viewing Screen */}
         <div
           className={`min-h-[280px] rounded-3xl p-6 sm:p-8 flex flex-col justify-start transition-all border-2 ${
@@ -241,12 +368,13 @@ export const OuvirLegendar: React.FC<OuvirLegendarProps> = ({
           {fullText ? (
             <div className="space-y-4">
               <p
+                id="caption-text-content"
                 className={`font-black tracking-tight leading-relaxed select-all ${
                   settings.contrastTheme === 'amarelo-preto' ? 'text-yellow-300' : 'text-black'
                 } ${
-                  settings.fontSize === 'gigante'
+                  localFontSize === 'gigante'
                     ? 'text-3xl sm:text-5xl lg:text-6xl'
-                    : settings.fontSize === 'grande'
+                    : localFontSize === 'grande'
                     ? 'text-2xl sm:text-4xl lg:text-5xl'
                     : 'text-xl sm:text-3xl lg:text-4xl'
                 }`}
@@ -262,8 +390,8 @@ export const OuvirLegendar: React.FC<OuvirLegendarProps> = ({
               </p>
 
               {/* Caption Status Footer */}
-              <div className="pt-4 mt-6 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500 font-medium">
-                <div className="flex items-center gap-3">
+              <div className="pt-4 mt-6 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500 font-medium flex-wrap gap-2">
+                <div className="flex items-center gap-3 flex-wrap">
                   <span>{wordCount} {wordCount === 1 ? 'palavra' : 'palavras'}</span>
                   <span>•</span>
                   <span>{fullText.length} caracteres</span>
@@ -276,6 +404,10 @@ export const OuvirLegendar: React.FC<OuvirLegendarProps> = ({
                     </>
                   )}
                 </div>
+
+                <span className="text-[11px] text-slate-400">
+                  Dica: Você pode selecionar qualquer trecho para copiar ou traduzir
+                </span>
               </div>
             </div>
           ) : (
@@ -285,7 +417,7 @@ export const OuvirLegendar: React.FC<OuvirLegendarProps> = ({
               </div>
               <h3 className="text-lg font-black text-black">Nenhuma fala captada no momento</h3>
               <p className="text-xs text-slate-600 leading-relaxed font-medium">
-                Clique no botão <strong>"Começar a Ouvir"</strong> acima e peça para o professor ou colega falar normalmente. As palavras aparecerão aqui em letras gigantes e sem repetições indesejadas.
+                Clique no botão <strong>"Começar a Ouvir"</strong> acima e fale normalmente. As palavras aparecerão aqui em letras gigantes e limpas, sem repetições consecutivas ou gaguejos.
               </p>
 
               {/* Informational banner about the anti-repetition improvement */}
@@ -293,7 +425,7 @@ export const OuvirLegendar: React.FC<OuvirLegendarProps> = ({
                 <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
                 <div className="text-xs text-emerald-900 leading-relaxed">
                   <strong className="block font-bold text-emerald-950">Aprimoramento Anti-Repetição Ativo:</strong>
-                  O sistema agora detecta e mescla sobreposições de áudio da Web Speech API, elimina gaguejos e remove repetições consecutivas de palavras (como <em>"o o"</em> ou <em>"vamos vamos"</em>).
+                  O sistema agora detecta e mescla sobreposições de áudio da Web Speech API de até 16 palavras, elimina gaguejos, remove repetições consecutivas e sanitiza as hipóteses em tempo real para não duplicar na tela.
                 </div>
               </div>
             </div>
