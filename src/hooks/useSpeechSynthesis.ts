@@ -10,7 +10,7 @@ interface UseSpeechSynthesisProps {
 /**
  * Normalizes language tags (pt-BR, pt_BR, pt, por-BRA, etc.)
  */
-function isPortugueseVoice(v: SpeechSynthesisVoice): boolean {
+export function isPortugueseVoice(v: SpeechSynthesisVoice): boolean {
   if (!v) return false;
   const lang = (v.lang || '').toLowerCase().replace('_', '-');
   const name = (v.name || '').toLowerCase();
@@ -21,6 +21,99 @@ function isPortugueseVoice(v: SpeechSynthesisVoice): boolean {
     name.includes('brazil') ||
     name.includes('brasil')
   );
+}
+
+export type MobileVoiceType = 'mobile-google' | 'mobile-apple' | 'mobile-padrao';
+
+export interface MobileVoiceItem {
+  id: MobileVoiceType;
+  title: string;
+  badge: string;
+  platform: string;
+  description: string;
+  samplePhrase: string;
+  matchedVoice: SpeechSynthesisVoice | null;
+}
+
+/**
+ * Resolves the 3 standard mobile device voices:
+ * 1. Google Voz (Android / Chrome Mobile Neural)
+ * 2. Apple / Siri (iPhone / iPad / Safari iOS)
+ * 3. Voz Nativa do Smartphone (Samsung / Local Offline)
+ */
+export function getMobileVoices(voices: SpeechSynthesisVoice[]): MobileVoiceItem[] {
+  const ptVoices = voices.filter(isPortugueseVoice);
+  const pool = ptVoices.length > 0 ? ptVoices : voices;
+
+  // 1. Google Voz (Android)
+  const googleVoice = pool.find((v) => {
+    const name = v.name.toLowerCase();
+    const uri = (v.voiceURI || '').toLowerCase();
+    return (
+      name.includes('google') ||
+      uri.includes('google') ||
+      uri.includes('network') ||
+      uri.includes('afs') ||
+      name.includes('android')
+    );
+  }) || pool.find(v => (v.lang || '').toLowerCase().includes('pt-br')) || pool[0] || null;
+
+  // 2. Apple / Siri (iOS)
+  const appleVoice = pool.find((v) => {
+    const name = v.name.toLowerCase();
+    const uri = (v.voiceURI || '').toLowerCase();
+    return (
+      name.includes('luciana') ||
+      name.includes('felipe') ||
+      name.includes('joana') ||
+      name.includes('apple') ||
+      uri.includes('apple') ||
+      name.includes('siri')
+    );
+  }) || pool.find(v => v !== googleVoice) || pool[0] || null;
+
+  // 3. Voz Nativa do Celular (Samsung / Local do Smartphone)
+  const nativeMobileVoice = pool.find((v) => {
+    const name = v.name.toLowerCase();
+    const uri = (v.voiceURI || '').toLowerCase();
+    return (
+      name.includes('samsung') ||
+      name.includes('local') ||
+      uri.includes('local') ||
+      v.default ||
+      (v !== googleVoice && v !== appleVoice)
+    );
+  }) || pool.find(v => v.default) || pool[1] || pool[0] || null;
+
+  return [
+    {
+      id: 'mobile-google',
+      title: 'Google Voz (Android)',
+      badge: 'Android • Neural',
+      platform: 'Smartphones Android',
+      description: googleVoice ? googleVoice.name : 'Voz Neural do Google para Android',
+      samplePhrase: 'Olá! Voz Google para celulares Android selecionada com sucesso.',
+      matchedVoice: googleVoice,
+    },
+    {
+      id: 'mobile-apple',
+      title: 'Apple / Siri (iOS)',
+      badge: 'iPhone • iPad',
+      platform: 'Dispositivos Apple iOS',
+      description: appleVoice ? appleVoice.name : 'Voz Luciana / Siri para iPhone e iPad',
+      samplePhrase: 'Olá! Voz Apple para iPhone e iPad selecionada com sucesso.',
+      matchedVoice: appleVoice,
+    },
+    {
+      id: 'mobile-padrao',
+      title: 'Voz Nativa do Celular',
+      badge: 'Offline • Sistema',
+      platform: 'Samsung / Padrão do Aparelho',
+      description: nativeMobileVoice ? nativeMobileVoice.name : 'Sintetizador nativo local do smartphone',
+      samplePhrase: 'Olá! Voz nativa do aparelho selecionada com sucesso.',
+      matchedVoice: nativeMobileVoice,
+    },
+  ];
 }
 
 /**
@@ -209,6 +302,24 @@ export function useSpeechSynthesis({
     }
   }, [voices]);
 
+  // Select one of the 3 Mobile Device Voices
+  const selectMobileVoice = useCallback((mobileType: MobileVoiceType): SpeechSynthesisVoice | null => {
+    const currentList = voices.length > 0 
+      ? voices 
+      : (typeof window !== 'undefined' && 'speechSynthesis' in window ? window.speechSynthesis.getVoices() : []);
+    if (!currentList || currentList.length === 0) return null;
+
+    const mobileList = getMobileVoices(currentList);
+    const chosen = mobileList.find(m => m.id === mobileType);
+    if (chosen && chosen.matchedVoice) {
+      setSelectedVoice(chosen.matchedVoice);
+      currentVoiceURIRef.current = chosen.matchedVoice.voiceURI;
+      onVoiceAutoSelectRef.current?.(chosen.matchedVoice.voiceURI);
+      return chosen.matchedVoice;
+    }
+    return null;
+  }, [voices]);
+
   // Select ChatGPT optimized voice persona
   const setChatGptPersona = useCallback(
     (persona: 'chatgpt-natural' | 'chatgpt-masculino' = 'chatgpt-natural'): SpeechSynthesisVoice | null => {
@@ -375,6 +486,7 @@ export function useSpeechSynthesis({
     selectedVoice,
     setSelectedVoice,
     selectVoiceByURI,
+    selectMobileVoice,
     setChatGptPersona,
     speak,
     cancel,

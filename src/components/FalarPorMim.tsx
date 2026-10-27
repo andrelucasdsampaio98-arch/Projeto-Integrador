@@ -21,6 +21,7 @@ import {
   Mic
 } from 'lucide-react';
 import { AppSettings, VoiceSpeechStyle } from '../types';
+import { getMobileVoices } from '../hooks/useSpeechSynthesis';
 
 interface VoiceSpeechStyleOption {
   id: VoiceSpeechStyle;
@@ -150,6 +151,7 @@ export const FalarPorMim: React.FC<FalarPorMimProps> = ({
   const displayVoices = showAllVoices || ptVoices.length === 0 ? voices : ptVoices;
 
   const currentVoiceURI = selectedVoice?.voiceURI || settings.selectedVoiceURI || (voices[0]?.voiceURI ?? '');
+  const mobileVoices = getMobileVoices(voices);
 
   return (
     <div className="space-y-6">
@@ -351,12 +353,78 @@ export const FalarPorMim: React.FC<FalarPorMimProps> = ({
             </div>
           )}
 
+          {/* 3 VOZES PARA DISPOSITIVOS MOBILE */}
+          <div className="space-y-2 pt-2 border-t border-orange-200">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-black uppercase tracking-wider text-stone-900 flex items-center gap-1.5">
+                <Smartphone className="h-4 w-4 text-orange-600" />
+                3 Vozes para Dispositivos Mobile (Celular & Tablet)
+              </span>
+              <span className="text-[10px] text-stone-600 font-bold">
+                Toque para alternar e ouvir
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              {mobileVoices.map((mv) => {
+                const isVoiceActive = currentVoiceURI === mv.matchedVoice?.voiceURI;
+                return (
+                  <button
+                    key={mv.id}
+                    type="button"
+                    onClick={() => {
+                      if (mv.matchedVoice && onSelectVoice) {
+                        onSelectVoice(mv.matchedVoice.voiceURI);
+                      }
+                      speak(mv.samplePhrase, undefined, mv.matchedVoice?.voiceURI);
+                    }}
+                    className={`p-2.5 rounded-xl border-2 text-left transition flex flex-col justify-between gap-1.5 cursor-pointer shadow-2xs ${
+                      isVoiceActive
+                        ? 'bg-orange-200/90 border-orange-500 ring-2 ring-orange-400'
+                        : 'bg-white border-orange-200 hover:border-orange-300 hover:bg-orange-100/50'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-1.5">
+                      <div className="flex items-center gap-1.5">
+                        <div className={`p-1 rounded-lg ${isVoiceActive ? 'bg-orange-400 text-stone-950 font-black' : 'bg-orange-100 text-stone-800'}`}>
+                          <Smartphone className="h-3.5 w-3.5" />
+                        </div>
+                        <div>
+                          <strong className="block text-xs font-black text-stone-950">
+                            {mv.title}
+                          </strong>
+                          <span className="text-[9px] font-bold text-stone-500">
+                            {mv.badge}
+                          </span>
+                        </div>
+                      </div>
+
+                      {isVoiceActive ? (
+                        <span className="text-[9px] font-black uppercase bg-orange-600 text-white px-1.5 py-0.5 rounded flex items-center gap-0.5 shrink-0">
+                          <Check className="h-2.5 w-2.5" /> Ativo
+                        </span>
+                      ) : (
+                        <span className="text-orange-700 hover:underline flex items-center gap-0.5 shrink-0 text-xs">
+                          <Volume2 className="h-3.5 w-3.5" />
+                        </span>
+                      )}
+                    </div>
+
+                    <p className="text-[10px] text-stone-600 truncate font-medium" title={mv.description}>
+                      {mv.description}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           {/* Voice Dropdown */}
           <div className="space-y-1.5">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
               <label htmlFor="voice-select-dropdown" className="text-xs font-black text-stone-900 flex items-center gap-1">
                 <Volume2 className="h-3.5 w-3.5 text-orange-600" />
-                <span>Voz do Dispositivo:</span>
+                <span>Todas as Vozes do Dispositivo:</span>
               </label>
 
               {voices.length > ptVoices.length && ptVoices.length > 0 && (

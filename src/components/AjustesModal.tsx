@@ -2,6 +2,7 @@ import React from 'react';
 import { Sliders, Volume2, VolumeX, Type, Eye, Smartphone, RotateCcw, Check, Sparkles, X, Bot, MessageSquare, GraduationCap, Zap, Mic } from 'lucide-react';
 import { AppSettings, FontSize, ContrastTheme, VoiceSpeechStyle } from '../types';
 import { VOICE_SPEECH_STYLES } from './FalarPorMim';
+import { getMobileVoices } from '../hooks/useSpeechSynthesis';
 
 interface AjustesModalProps {
   settings: AppSettings;
@@ -62,6 +63,7 @@ export const AjustesModal: React.FC<AjustesModalProps> = ({
   const ptVoices = voices.filter(
     (v) => v.lang === 'pt-BR' || v.lang.startsWith('pt') || v.name.toLowerCase().includes('portuguese')
   );
+  const mobileVoices = getMobileVoices(voices);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
@@ -203,10 +205,62 @@ export const AjustesModal: React.FC<AjustesModalProps> = ({
             })}
           </div>
 
+          {/* 3 VOZES PARA DISPOSITIVOS MOBILE */}
+          <div className="space-y-1.5 pt-2 border-t border-orange-200">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-black uppercase text-stone-900 flex items-center gap-1">
+                <Smartphone className="h-3.5 w-3.5 text-orange-600" />
+                3 Vozes para Dispositivos Mobile (Celular & Tablet)
+              </span>
+              <span className="text-[10px] text-stone-500 font-bold">
+                Toque para testar
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              {mobileVoices.map((mv) => {
+                const isVoiceActive = (selectedVoice?.voiceURI || settings.selectedVoiceURI) === mv.matchedVoice?.voiceURI;
+                return (
+                  <button
+                    key={mv.id}
+                    type="button"
+                    onClick={() => {
+                      if (mv.matchedVoice && onSelectVoice) {
+                        onSelectVoice(mv.matchedVoice.voiceURI);
+                      }
+                      speak(mv.samplePhrase, undefined, mv.matchedVoice?.voiceURI);
+                    }}
+                    className={`p-2 rounded-xl border text-left transition flex flex-col justify-between gap-1 cursor-pointer shadow-2xs ${
+                      isVoiceActive
+                        ? 'bg-orange-200/90 border-orange-500 ring-2 ring-orange-400'
+                        : 'bg-white border-orange-200 hover:border-orange-300 hover:bg-orange-100/50'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-1">
+                      <strong className="block text-[11px] font-black text-stone-950">
+                        {mv.title}
+                      </strong>
+                      {isVoiceActive ? (
+                        <span className="text-[8px] font-black uppercase bg-orange-600 text-white px-1 py-0.2 rounded shrink-0">
+                          Ativo
+                        </span>
+                      ) : (
+                        <Volume2 className="h-3 w-3 text-orange-700 shrink-0" />
+                      )}
+                    </div>
+                    <span className="text-[9px] text-stone-500 block truncate" title={mv.description}>
+                      {mv.badge} • {mv.description}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           {/* Voice Dropdown + Instant Test Button */}
           <div className="space-y-1.5 pt-1">
             <label className="text-[11px] font-bold text-stone-800 block">
-              Selecionar Voz Instalada no Dispositivo ({voices.length > 0 ? `${voices.length} detectadas` : 'Carregando...'}):
+              Todas as Vozes Instaladas no Dispositivo ({voices.length > 0 ? `${voices.length} detectadas` : 'Carregando...'}):
             </label>
             {voices.length > 0 ? (
               <div className="flex gap-2 items-center">
