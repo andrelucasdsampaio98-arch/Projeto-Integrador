@@ -1,8 +1,6 @@
 import React from 'react';
-import { Sliders, Volume2, VolumeX, Type, Eye, Smartphone, RotateCcw, Check, Sparkles, X, Bot, MessageSquare, GraduationCap, Zap, Mic } from 'lucide-react';
-import { AppSettings, FontSize, ContrastTheme, VoiceSpeechStyle } from '../types';
-import { VOICE_SPEECH_STYLES } from './FalarPorMim';
-import { getMobileVoices } from '../hooks/useSpeechSynthesis';
+import { Sliders, Volume2, VolumeX, Type, Eye, RotateCcw, Check, Sparkles, X } from 'lucide-react';
+import { AppSettings, FontSize, ContrastTheme } from '../types';
 
 interface AjustesModalProps {
   settings: AppSettings;
@@ -12,7 +10,6 @@ interface AjustesModalProps {
   voices?: SpeechSynthesisVoice[];
   selectedVoice?: SpeechSynthesisVoice | null;
   onSelectVoice?: (voiceURI: string) => void;
-  onUpdateSpeechStyle?: (style: VoiceSpeechStyle, rate: number, pitch: number) => void;
   isSpeaking?: boolean;
   cancelSpeak?: () => void;
 }
@@ -22,10 +19,6 @@ export const AjustesModal: React.FC<AjustesModalProps> = ({
   setSettings,
   speak,
   onClose,
-  voices = [],
-  selectedVoice,
-  onSelectVoice,
-  onUpdateSpeechStyle,
   isSpeaking = false,
   cancelSpeak,
 }) => {
@@ -59,11 +52,6 @@ export const AjustesModal: React.FC<AjustesModalProps> = ({
       // ignore
     }
   };
-
-  const ptVoices = voices.filter(
-    (v) => v.lang === 'pt-BR' || v.lang.startsWith('pt') || v.name.toLowerCase().includes('portuguese')
-  );
-  const mobileVoices = getMobileVoices(voices);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
@@ -147,189 +135,26 @@ export const AjustesModal: React.FC<AjustesModalProps> = ({
           </div>
         </div>
 
-        {/* Setting 3: VOZ E ESTILOS DE FALA */}
+        {/* Setting 3: VOZ PADRÃO BRASILEIRO (1.05x) */}
         <div className="space-y-3 p-4 rounded-2xl bg-orange-50 border border-orange-300">
           <div className="flex items-center justify-between">
             <label className="text-xs font-black uppercase tracking-wider text-stone-950 flex items-center gap-1.5">
               <Sparkles className="h-4 w-4 text-orange-600" />
-              Estilos de Fala e Voz
+              Voz Padrão Brasileiro (pt-BR)
             </label>
             <span className="text-[11px] font-black text-orange-950 bg-orange-200 px-2.5 py-0.5 rounded-full border border-orange-300">
-              {settings.voiceStyle ? settings.voiceStyle.toUpperCase() : 'CONVERSACIONAL'}
+              1.05x Automático
             </span>
           </div>
 
           <p className="text-xs text-stone-700 leading-relaxed">
-            Selecione o estilo de fala mais adequado para a sua rotina de estudo, sala de aula ou apresentações.
+            A síntese de fala está configurada no padrão em Português Brasileiro (pt-BR) com velocidade natural de 1.05x.
           </p>
 
-          {/* Voice Speech Styles Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
-            {VOICE_SPEECH_STYLES.map((style) => {
-              const Icon = style.icon;
-              const isActive = (settings.voiceStyle || 'conversacional') === style.id;
-              return (
-                <button
-                  key={style.id}
-                  type="button"
-                  onClick={() => {
-                    if (onUpdateSpeechStyle) {
-                      onUpdateSpeechStyle(style.id, style.rate, style.pitch);
-                    } else {
-                      updateSetting('voiceStyle', style.id);
-                      updateSetting('voiceRate', style.rate);
-                      updateSetting('voicePitch', style.pitch);
-                    }
-                    speak(style.samplePhrase, undefined, settings.selectedVoiceURI);
-                  }}
-                  className={`p-2.5 rounded-xl border text-left transition shadow-2xs flex flex-col justify-between gap-1 cursor-pointer ${
-                    isActive
-                      ? 'bg-orange-200/90 border-orange-500 ring-2 ring-orange-400'
-                      : 'bg-white hover:bg-orange-100 border-orange-300'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5">
-                      <Icon className="h-3.5 w-3.5 text-orange-600" />
-                      <strong className="block text-xs font-black text-stone-950">{style.name}</strong>
-                    </div>
-                    {isActive && (
-                      <span className="text-[9px] font-black uppercase bg-orange-600 text-white px-1.5 py-0.2 rounded flex items-center gap-0.5">
-                        <Check className="h-2.5 w-2.5" /> Ativo
-                      </span>
-                    )}
-                  </div>
-                  <span className="text-[10px] text-stone-600 leading-tight">{style.description}</span>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* 3 VOZES PARA DISPOSITIVOS MOBILE */}
-          <div className="space-y-1.5 pt-2 border-t border-orange-200">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-black uppercase text-stone-900 flex items-center gap-1">
-                <Smartphone className="h-3.5 w-3.5 text-orange-600" />
-                3 Vozes para Dispositivos Mobile (Celular & Tablet)
-              </span>
-              <span className="text-[10px] text-stone-500 font-bold">
-                Toque para testar
-              </span>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-              {mobileVoices.map((mv) => {
-                const isVoiceActive = (selectedVoice?.voiceURI || settings.selectedVoiceURI) === mv.matchedVoice?.voiceURI;
-                return (
-                  <button
-                    key={mv.id}
-                    type="button"
-                    onClick={() => {
-                      if (mv.matchedVoice && onSelectVoice) {
-                        onSelectVoice(mv.matchedVoice.voiceURI);
-                      }
-                      speak(mv.samplePhrase, undefined, mv.matchedVoice?.voiceURI);
-                    }}
-                    className={`p-2 rounded-xl border text-left transition flex flex-col justify-between gap-1 cursor-pointer shadow-2xs ${
-                      isVoiceActive
-                        ? 'bg-orange-200/90 border-orange-500 ring-2 ring-orange-400'
-                        : 'bg-white border-orange-200 hover:border-orange-300 hover:bg-orange-100/50'
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-1">
-                      <strong className="block text-[11px] font-black text-stone-950">
-                        {mv.title}
-                      </strong>
-                      {isVoiceActive ? (
-                        <span className="text-[8px] font-black uppercase bg-orange-600 text-white px-1 py-0.2 rounded shrink-0">
-                          Ativo
-                        </span>
-                      ) : (
-                        <Volume2 className="h-3 w-3 text-orange-700 shrink-0" />
-                      )}
-                    </div>
-                    <span className="text-[9px] text-stone-500 block truncate" title={mv.description}>
-                      {mv.badge} • {mv.description}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Voice Dropdown + Instant Test Button */}
-          <div className="space-y-1.5 pt-1">
-            <label className="text-[11px] font-bold text-stone-800 block">
-              Todas as Vozes Instaladas no Dispositivo ({voices.length > 0 ? `${voices.length} detectadas` : 'Carregando...'}):
-            </label>
-            {voices.length > 0 ? (
-              <div className="flex gap-2 items-center">
-                <select
-                  value={selectedVoice?.voiceURI || settings.selectedVoiceURI || (voices[0]?.voiceURI ?? '')}
-                  onChange={(e) => {
-                    const uri = e.target.value;
-                    if (onSelectVoice) onSelectVoice(uri);
-                  }}
-                  className="flex-1 text-xs font-semibold p-2.5 rounded-xl bg-white border border-orange-300 text-black focus:outline-none focus:ring-2 focus:ring-orange-400 cursor-pointer"
-                >
-                  {(ptVoices.length > 0 ? ptVoices : voices).map((v, idx) => (
-                    <option key={`${v.voiceURI}-${idx}`} value={v.voiceURI}>
-                      {v.name} ({v.lang})
-                    </option>
-                  ))}
-                </select>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    const targetURI = selectedVoice?.voiceURI || settings.selectedVoiceURI || (voices[0]?.voiceURI ?? '');
-                    speak('Olá! Testando a voz selecionada agora.', undefined, targetURI);
-                  }}
-                  className="px-3 py-2.5 rounded-xl bg-orange-300 hover:bg-orange-400 text-stone-900 font-black text-xs transition border border-orange-400 shadow-2xs shrink-0 flex items-center gap-1 cursor-pointer"
-                  title="Testar a voz selecionada no menu"
-                >
-                  <Volume2 className="h-3.5 w-3.5" />
-                  <span>Testar</span>
-                </button>
-              </div>
-            ) : (
-              <p className="text-xs text-stone-500 italic p-2 bg-white rounded-lg border border-orange-200">
-                Aguardando navegador inicializar as vozes do sistema...
-              </p>
-            )}
-          </div>
-
-          {/* Voice Speed Slider */}
-          <div className="space-y-1.5 pt-2 border-t border-orange-200">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-stone-800">
-                Velocidade da Voz: {settings.voiceRate.toFixed(2)}x
-              </span>
-              <span className="text-[10px] text-stone-500 font-semibold">
-                (ChatGPT Padrão: 1.05x)
-              </span>
-            </div>
-            <input
-              type="range"
-              min="0.7"
-              max="1.5"
-              step="0.05"
-              value={settings.voiceRate}
-              onChange={(e) => updateSetting('voiceRate', parseFloat(e.target.value))}
-              className="w-full accent-orange-600 cursor-pointer"
-            />
-          </div>
-
           <div className="flex items-center justify-between pt-1">
-            <button
-              onClick={() => {
-                updateSetting('voiceRate', 1.05);
-                updateSetting('voicePitch', 1.02);
-              }}
-              className="text-[11px] text-orange-950 underline font-bold cursor-pointer"
-            >
-              Redefinir para 1.05x (ChatGPT)
-            </button>
+            <span className="text-xs font-bold text-stone-800">
+              Idioma: Português do Brasil • Ritmo: 1.05x
+            </span>
 
             {isSpeaking ? (
               <button
@@ -342,10 +167,10 @@ export const AjustesModal: React.FC<AjustesModalProps> = ({
             ) : (
               <button
                 type="button"
-                onClick={() => speak('Olá! Esta é a voz configurada no estilo ChatGPT para falar por mim com máxima clareza e naturalidade.')}
+                onClick={() => speak('Olá! Esta é a voz padrão em português brasileiro configurada a 1.05x para falar com clareza e naturalidade.')}
                 className="text-xs text-stone-900 bg-orange-300 hover:bg-orange-400 font-black flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-orange-400 shadow-2xs transition cursor-pointer"
               >
-                <Volume2 className="h-3.5 w-3.5" /> Testar Voz Agora
+                <Volume2 className="h-3.5 w-3.5" /> Testar Voz
               </button>
             )}
           </div>

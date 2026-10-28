@@ -472,19 +472,6 @@ export default function App() {
             isSpeaking={isSpeaking}
             cancelSpeak={cancelSpeak}
             settings={settings}
-            voices={voices}
-            selectedVoice={selectedVoice}
-            onSelectVoice={(uri) => {
-              selectVoiceByURI(uri);
-              setSettings((prev) => {
-                const updated = { ...prev, selectedVoiceURI: uri };
-                try {
-                  localStorage.setItem('ponte_app_settings', JSON.stringify(updated));
-                } catch {}
-                return updated;
-              });
-            }}
-            onUpdateSpeechStyle={handleUpdateSpeechStyle}
           />
         )}
 
@@ -581,19 +568,6 @@ export default function App() {
           isSpeaking={isSpeaking}
           cancelSpeak={cancelSpeak}
           onClose={() => setShowSettings(false)}
-          voices={voices}
-          selectedVoice={selectedVoice}
-          onSelectVoice={(uri) => {
-            selectVoiceByURI(uri);
-            setSettings((prev) => {
-              const updated = { ...prev, selectedVoiceURI: uri };
-              try {
-                localStorage.setItem('ponte_app_settings', JSON.stringify(updated));
-              } catch {}
-              return updated;
-            });
-          }}
-          onUpdateSpeechStyle={handleUpdateSpeechStyle}
         />
       )}
 
