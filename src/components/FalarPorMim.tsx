@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   Volume2, 
   VolumeX, 
@@ -7,12 +7,16 @@ import {
   RotateCcw, 
   Copy, 
   Smartphone,
-  Send
+  Send,
+  Shuffle,
+  Play,
+  Check,
+  Sparkles
 } from 'lucide-react';
 import { AppSettings, VoiceSpeechStyle } from '../types';
 
 interface FalarPorMimProps {
-  speak: (text: string, onEndCallback?: () => void, overrideVoiceURI?: string) => void;
+  speak: (text: string, onEndCallback?: () => void, overrideVoiceURI?: string, overridePitch?: number) => void;
   isSpeaking: boolean;
   cancelSpeak: () => void;
   settings: AppSettings;
@@ -20,6 +24,7 @@ interface FalarPorMimProps {
   selectedVoice?: SpeechSynthesisVoice | null;
   onSelectVoice?: (voiceURI: string) => void;
   onUpdateSpeechStyle?: (style: VoiceSpeechStyle, rate: number, pitch: number) => void;
+  onCycleVoice?: () => SpeechSynthesisVoice | null;
 }
 
 export const FalarPorMim: React.FC<FalarPorMimProps> = ({
@@ -27,6 +32,10 @@ export const FalarPorMim: React.FC<FalarPorMimProps> = ({
   isSpeaking,
   cancelSpeak,
   settings,
+  voices = [],
+  selectedVoice,
+  onSelectVoice,
+  onCycleVoice,
 }) => {
   const [text, setText] = useState('');
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -37,6 +46,42 @@ export const FalarPorMim: React.FC<FalarPorMimProps> = ({
     'Professor, tenho uma dúvida no exercício de programação.',
     'Obrigado pela explicação!',
   ]);
+
+  const distinctVoices = useMemo(() => {
+    const list = voices && voices.length > 0
+      ? voices
+      : (typeof window !== 'undefined' && 'speechSynthesis' in window ? window.speechSynthesis.getVoices() : []);
+    
+    if (!list || list.length === 0) return [];
+    const pt = list.filter((v) => {
+      const lang = (v.lang || '').toLowerCase().replace('_', '-');
+      const name = (v.name || '').toLowerCase();
+      return lang.startsWith('pt') || lang.includes('por') || name.includes('portug') || name.includes('brazil') || name.includes('brasil');
+    });
+    const pool = pt.length > 0 ? pt : list;
+    return pool.filter((v, i, arr) => arr.findIndex((item) => item.voiceURI === v.voiceURI || item.name === v.name) === i);
+  }, [voices]);
+
+  const handleCycleVoice = () => {
+    if (onCycleVoice) {
+      const newVoice = onCycleVoice();
+      if (newVoice) {
+        speak(`Voz alterada para ${newVoice.name}. Teste de fala funcionando com sucesso.`, undefined, newVoice.voiceURI);
+      }
+    }
+  };
+
+  const handleSelectVoice = (targetURI: string, voiceName: string) => {
+    if (onSelectVoice) {
+      onSelectVoice(targetURI);
+      speak(`Voz alterada para ${voiceName}. Teste de fala funcionando com sucesso.`, undefined, targetURI);
+    }
+  };
+
+  const handleTestCurrentVoice = () => {
+    const vName = selectedVoice?.name || 'Voz Padrão Brasileiro';
+    speak(`Olá! Esta é a voz de teste: ${vName}. Som configurado e funcionando perfeitamente!`, undefined, selectedVoice?.voiceURI);
+  };
 
   const handleSpeak = (textToSpeak: string) => {
     if (!textToSpeak.trim()) return;
@@ -154,16 +199,80 @@ export const FalarPorMim: React.FC<FalarPorMimProps> = ({
       {/* REGULAR VIEW */}
       <div className="rounded-3xl bg-white border border-slate-200 p-5 sm:p-7 shadow-xs space-y-5">
         {/* Header Title */}
-        <div>
-          <h2 className="text-xl font-black text-stone-900 flex items-center gap-2">
-            Falar por mim
-            <span className="text-xs px-2.5 py-0.5 rounded-full bg-orange-100 text-orange-950 font-extrabold border border-orange-200">
-              Padrão Brasileiro pt-BR (1.05x)
-            </span>
-          </h2>
-          <p className="text-xs text-stone-600 mt-1 leading-relaxed">
-            Digite o que deseja comunicar no campo abaixo e clique em <strong>Falar Agora</strong>.
-          </p>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-black text-stone-900 flex items-center gap-2">
+              Falar por mim
+              <span className="text-xs px-2.5 py-0.5 rounded-full bg-orange-100 text-orange-950 font-extrabold border border-orange-200">
+                Padrão Brasileiro pt-BR (1.05x)
+              </span>
+            </h2>
+            <p className="text-xs text-stone-600 mt-1 leading-relaxed">
+              Digite o que deseja comunicar no campo abaixo e clique em <strong>Falar Agora</strong>.
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-2 shrink-0 self-start sm:self-auto">
+            <div className="flex flex-wrap items-center gap-2 px-3 py-1.5 rounded-xl bg-orange-50 border border-orange-200 text-xs font-semibold text-orange-950 shadow-2xs">
+              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span>Voz Ativa: <strong className="font-black text-stone-900">{selectedVoice?.name || 'Voz Neural (Estilo ChatGPT)'}</strong></span>
+              
+              {onCycleVoice && (
+                <button
+                  type="button"
+                  onClick={handleCycleVoice}
+                  className="ml-1 px-2.5 py-1 rounded-lg bg-orange-300 hover:bg-orange-400 text-stone-900 border border-orange-400 font-black text-[11px] transition flex items-center gap-1 shadow-2xs cursor-pointer"
+                  title="Mudar para outra voz disponível no sistema"
+                >
+                  <Shuffle className="h-3 w-3" />
+                  <span>Trocar Voz</span>
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={handleTestCurrentVoice}
+                className="px-2.5 py-1 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-900 border border-stone-300 font-black text-[11px] transition flex items-center gap-1 shadow-2xs cursor-pointer"
+                title="Ouvir teste da voz ativa agora"
+              >
+                <Play className="h-3 w-3 fill-stone-900" />
+                <span>Testar Voz</span>
+              </button>
+            </div>
+
+            {/* Direct voice selector buttons if multiple Portuguese voices exist */}
+            {distinctVoices.length > 1 && (
+              <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                <span className="text-[11px] font-bold text-stone-500">Escolha rápida:</span>
+                {distinctVoices.slice(0, 6).map((v, idx) => {
+                  const isSelected = selectedVoice?.voiceURI === v.voiceURI;
+                  // Clean simplified name for display
+                  const displayName = v.name
+                    .replace(/(Microsoft|Google|Desktop|Natural|Online|\(Natural\))/gi, '')
+                    .replace(/Portuguese \(Brazil\)/gi, 'Brasil')
+                    .replace(/Português \(Brasil\)/gi, 'Brasil')
+                    .trim() || `Voz ${idx + 1}`;
+
+                  return (
+                    <button
+                      key={v.voiceURI || idx}
+                      type="button"
+                      onClick={() => handleSelectVoice(v.voiceURI, v.name)}
+                      className={`px-2 py-0.5 rounded-lg text-[11px] font-extrabold transition border cursor-pointer flex items-center gap-1 ${
+                        isSelected
+                          ? 'bg-orange-400 text-stone-950 border-orange-500 shadow-2xs'
+                          : 'bg-white hover:bg-orange-50 text-stone-700 border-slate-300'
+                      }`}
+                      title={v.name}
+                    >
+                      {isSelected && <Check className="h-2.5 w-2.5 stroke-[3]" />}
+                      <span>{displayName}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Text Input Area */}

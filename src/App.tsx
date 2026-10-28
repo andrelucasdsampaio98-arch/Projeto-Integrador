@@ -114,7 +114,12 @@ export default function App() {
       const saved = localStorage.getItem('ponte_app_settings');
       if (saved) {
         const parsed = JSON.parse(saved);
-        const updated: AppSettings = { ...INITIAL_SETTINGS, ...parsed, contrastTheme: 'azul-laranja' };
+        const updated: AppSettings = { 
+          ...INITIAL_SETTINGS, 
+          ...parsed, 
+          selectedVoiceURI: parsed.selectedVoiceURI || '',
+          contrastTheme: 'azul-laranja' 
+        };
         localStorage.setItem('ponte_app_settings', JSON.stringify(updated));
         return updated;
       }
@@ -166,14 +171,11 @@ export default function App() {
   const handleVoiceAutoSelect = useCallback((uri: string) => {
     setSettings((prev) => {
       if (prev.selectedVoiceURI === uri) return prev;
-      if (!prev.selectedVoiceURI) {
-        const updated = { ...prev, selectedVoiceURI: uri };
-        try {
-          localStorage.setItem('ponte_app_settings', JSON.stringify(updated));
-        } catch {}
-        return updated;
-      }
-      return prev;
+      const updated = { ...prev, selectedVoiceURI: uri };
+      try {
+        localStorage.setItem('ponte_app_settings', JSON.stringify(updated));
+      } catch {}
+      return updated;
     });
   }, []);
 
@@ -197,9 +199,11 @@ export default function App() {
     isSupported: isTtsSupported,
     isSpeaking,
     voices,
+    ptVoices,
     selectedVoice,
     selectVoiceByURI,
     setChatGptPersona,
+    cycleNextVoice,
     speak,
     cancel: cancelSpeak,
   } = useSpeechSynthesis({
@@ -472,6 +476,10 @@ export default function App() {
             isSpeaking={isSpeaking}
             cancelSpeak={cancelSpeak}
             settings={settings}
+            voices={voices}
+            selectedVoice={selectedVoice}
+            onSelectVoice={selectVoiceByURI}
+            onCycleVoice={cycleNextVoice}
           />
         )}
 
@@ -567,6 +575,10 @@ export default function App() {
           speak={speak}
           isSpeaking={isSpeaking}
           cancelSpeak={cancelSpeak}
+          voices={voices}
+          selectedVoice={selectedVoice}
+          onSelectVoice={selectVoiceByURI}
+          onCycleVoice={cycleNextVoice}
           onClose={() => setShowSettings(false)}
         />
       )}

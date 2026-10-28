@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sliders, Volume2, VolumeX, Type, Eye, RotateCcw, Check, Sparkles, X } from 'lucide-react';
+import { Sliders, Volume2, VolumeX, Type, Eye, RotateCcw, Check, Sparkles, X, Shuffle } from 'lucide-react';
 import { AppSettings, FontSize, ContrastTheme } from '../types';
 
 interface AjustesModalProps {
@@ -12,6 +12,7 @@ interface AjustesModalProps {
   onSelectVoice?: (voiceURI: string) => void;
   isSpeaking?: boolean;
   cancelSpeak?: () => void;
+  onCycleVoice?: () => SpeechSynthesisVoice | null;
 }
 
 export const AjustesModal: React.FC<AjustesModalProps> = ({
@@ -21,7 +22,46 @@ export const AjustesModal: React.FC<AjustesModalProps> = ({
   onClose,
   isSpeaking = false,
   cancelSpeak,
+  voices = [],
+  selectedVoice,
+  onSelectVoice,
+  onCycleVoice,
 }) => {
+  const distinctVoices = React.useMemo(() => {
+    const list = voices && voices.length > 0
+      ? voices
+      : (typeof window !== 'undefined' && 'speechSynthesis' in window ? window.speechSynthesis.getVoices() : []);
+    
+    if (!list || list.length === 0) return [];
+    const pt = list.filter((v) => {
+      const lang = (v.lang || '').toLowerCase().replace('_', '-');
+      const name = (v.name || '').toLowerCase();
+      return lang.startsWith('pt') || lang.includes('por') || name.includes('portug') || name.includes('brazil') || name.includes('brasil');
+    });
+    const pool = pt.length > 0 ? pt : list;
+    return pool.filter((v, i, arr) => arr.findIndex((item) => item.voiceURI === v.voiceURI || item.name === v.name) === i);
+  }, [voices]);
+
+  const handleCycleVoice = () => {
+    if (onCycleVoice) {
+      const newVoice = onCycleVoice();
+      if (newVoice) {
+        speak(`Voz alterada para ${newVoice.name}. Teste concluído.`, undefined, newVoice.voiceURI);
+      }
+    }
+  };
+
+  const handleSelectVoice = (uri: string, name: string) => {
+    if (onSelectVoice) {
+      onSelectVoice(uri);
+      speak(`Voz alterada para ${name}. Teste concluído.`, undefined, uri);
+    }
+  };
+
+  const handleTestVoice = () => {
+    const vName = selectedVoice?.name || 'Voz Padrão';
+    speak(`Olá! Esta é a voz ${vName} configurada para falar em português brasileiro a 1.05x.`, undefined, selectedVoice?.voiceURI);
+  };
   const updateSetting = <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => {
     setSettings((prev) => {
       const updated = { ...prev, [key]: value };
@@ -148,32 +188,76 @@ export const AjustesModal: React.FC<AjustesModalProps> = ({
           </div>
 
           <p className="text-xs text-stone-700 leading-relaxed">
-            A síntese de fala está configurada no padrão em Português Brasileiro (pt-BR) com velocidade natural de 1.05x.
+            Voz ativa no momento: <strong className="font-black text-stone-900">{selectedVoice?.name || 'Voz Neural Conversacional'}</strong>.
           </p>
 
-          <div className="flex items-center justify-between pt-1">
+          <div className="flex items-center justify-between pt-1 flex-wrap gap-2">
             <span className="text-xs font-bold text-stone-800">
               Idioma: Português do Brasil • Ritmo: 1.05x
             </span>
 
-            {isSpeaking ? (
-              <button
-                type="button"
-                onClick={cancelSpeak}
-                className="text-xs text-white bg-rose-600 hover:bg-rose-500 font-black flex items-center gap-1.5 px-3 py-1.5 rounded-xl shadow-2xs transition animate-pulse cursor-pointer"
-              >
-                <VolumeX className="h-3.5 w-3.5" /> Parar Áudio
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => speak('Olá! Esta é a voz padrão em português brasileiro configurada a 1.05x para falar com clareza e naturalidade.')}
-                className="text-xs text-stone-900 bg-orange-300 hover:bg-orange-400 font-black flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-orange-400 shadow-2xs transition cursor-pointer"
-              >
-                <Volume2 className="h-3.5 w-3.5" /> Testar Voz
-              </button>
-            )}
+            <div className="flex items-center gap-2">
+              {onCycleVoice && (
+                <button
+                  type="button"
+                  onClick={handleCycleVoice}
+                  className="text-xs text-stone-900 bg-stone-100 hover:bg-orange-100 font-black flex items-center gap-1 px-3 py-1.5 rounded-xl border border-stone-300 shadow-2xs transition cursor-pointer"
+                  title="Trocar para a próxima voz disponível"
+                >
+                  <Shuffle className="h-3.5 w-3.5" /> Outra Voz
+                </button>
+              )}
+
+              {isSpeaking ? (
+                <button
+                  type="button"
+                  onClick={cancelSpeak}
+                  className="text-xs text-white bg-rose-600 hover:bg-rose-500 font-black flex items-center gap-1.5 px-3 py-1.5 rounded-xl shadow-2xs transition animate-pulse cursor-pointer"
+                >
+                  <VolumeX className="h-3.5 w-3.5" /> Parar Áudio
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleTestVoice}
+                  className="text-xs text-stone-900 bg-orange-300 hover:bg-orange-400 font-black flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-orange-400 shadow-2xs transition cursor-pointer"
+                >
+                  <Volume2 className="h-3.5 w-3.5" /> Testar Voz
+                </button>
+              )}
+            </div>
           </div>
+
+          {/* Quick selectable voices if multiple available */}
+          {distinctVoices.length > 1 && (
+            <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-orange-200/80">
+              <span className="text-[11px] font-bold text-stone-600">Troca rápida:</span>
+              {distinctVoices.slice(0, 6).map((v, idx) => {
+                const isSelected = selectedVoice?.voiceURI === v.voiceURI;
+                const displayName = v.name
+                  .replace(/(Microsoft|Google|Desktop|Natural|Online|\(Natural\))/gi, '')
+                  .replace(/Portuguese \(Brazil\)/gi, 'Brasil')
+                  .replace(/Português \(Brasil\)/gi, 'Brasil')
+                  .trim() || `Voz ${idx + 1}`;
+
+                return (
+                  <button
+                    key={v.voiceURI || idx}
+                    type="button"
+                    onClick={() => handleSelectVoice(v.voiceURI, v.name)}
+                    className={`px-2 py-0.5 rounded-lg text-[11px] font-extrabold transition border cursor-pointer flex items-center gap-1 ${
+                      isSelected
+                        ? 'bg-orange-400 text-stone-950 border-orange-500 shadow-2xs'
+                        : 'bg-white hover:bg-orange-100 text-stone-700 border-stone-300'
+                    }`}
+                  >
+                    {isSelected && <Check className="h-2.5 w-2.5 stroke-[3]" />}
+                    <span>{displayName}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Setting 4: Tipografia Inclusiva (Atkinson Hyperlegible) */}
