@@ -41,6 +41,28 @@ export interface LessonMp3Video {
   librasInstructions?: string;
 }
 
+export type TipoPublicacao = 'aula' | 'atividade';
+
+export interface AulaAtividade {
+  id: string;
+  titulo: string;
+  descricao: string;
+  instrucoes?: string;
+  tipo: TipoPublicacao;
+  professor_id?: string;
+  professor_nome: string;
+  disciplina?: string;
+  prazo_entrega?: string | null;
+  prazo?: string | null;
+  material_url?: string | null;
+  material_nome?: string | null;
+  material_tipo?: string | null;
+  material_tamanho?: string | null;
+  data_criacao: string;
+  criado_em?: string;
+  created_at?: string;
+}
+
 export interface Lesson {
   id: string;
   title: string;
@@ -56,6 +78,15 @@ export interface Lesson {
   isCompleted?: boolean;
   studentNotes?: string;
   tags: string[];
+  tipo?: TipoPublicacao;
+  instructions?: string;
+  deadline?: string | null;
+  professorId?: string;
+  materialUrl?: string | null;
+  materialName?: string | null;
+  materialType?: string | null;
+  materialSize?: string | null;
+  isFromSupabase?: boolean;
 }
 
 export type ContrastTheme = 'azul-laranja' | 'laranja-pastel' | 'padrao' | 'amarelo-preto' | 'preto-branco' | 'azul-ciano';

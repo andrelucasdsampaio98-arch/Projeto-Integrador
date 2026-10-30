@@ -18,31 +18,55 @@ import {
   Pause,
   Bot,
   ShieldCheck,
-  Volume2
+  Volume2,
+  Image as ImageIcon,
+  ExternalLink,
+  Lock
 } from 'lucide-react';
-import { Lesson, LessonPdfFile, LessonMp3Video } from '../types';
+import { Lesson, LessonPdfFile, LessonMp3Video, TipoPublicacao, UserAccount } from '../types';
 import { generatePdfDataUrl } from '../utils/pdfGenerator';
 import { generateSampleAudioDataUrl } from '../utils/audioGenerator';
+import { 
+  isSupabaseConfigured, 
+  supabaseUploadMaterial, 
+  supabaseCreateSignedUrl, 
+  isMaterialFileAllowed, 
+  getMaterialCategory,
+  SUPABASE_BUCKET_MATERIAIS 
+} from '../lib/supabase';
 
 interface TeacherLessonModalProps {
   lessonToEdit?: Lesson | null;
+  defaultTipo?: TipoPublicacao;
+  currentUser?: UserAccount | null;
   onSave: (lesson: Lesson) => void;
   onClose: () => void;
 }
 
 export const TeacherLessonModal: React.FC<TeacherLessonModalProps> = ({
   lessonToEdit,
+  defaultTipo = 'aula',
+  currentUser,
   onSave,
   onClose
 }) => {
+  const [tipo, setTipo] = useState<TipoPublicacao>(lessonToEdit?.tipo || defaultTipo);
   const [title, setTitle] = useState(lessonToEdit?.title || '');
   const [subject, setSubject] = useState(lessonToEdit?.subject || 'Informática');
-  const [teacherName, setTeacherName] = useState(lessonToEdit?.teacherName || 'Prof. Docente');
+  const [teacherName, setTeacherName] = useState(
+    lessonToEdit?.teacherName || currentUser?.name || 'Prof. Docente'
+  );
   const [date, setDate] = useState(
     lessonToEdit?.date || new Date().toISOString().split('T')[0]
   );
+  const [deadline, setDeadline] = useState(lessonToEdit?.deadline || '');
   const [summary, setSummary] = useState(lessonToEdit?.summary || '');
   const [fullContent, setFullContent] = useState(lessonToEdit?.fullContent || '');
+  const [instructions, setInstructions] = useState(lessonToEdit?.instructions || '');
+  const [materialUrl, setMaterialUrl] = useState(lessonToEdit?.materialUrl || '');
+  const [materialName, setMaterialName] = useState(lessonToEdit?.materialName || '');
+  const [materialType, setMaterialType] = useState(lessonToEdit?.materialType || '');
+  const [materialSize, setMaterialSize] = useState(lessonToEdit?.materialSize || '');
   const [accessibleTranscript, setAccessibleTranscript] = useState(
     lessonToEdit?.accessibleTranscript || ''
   );
@@ -61,7 +85,11 @@ export const TeacherLessonModal: React.FC<TeacherLessonModalProps> = ({
 
   // Upload & Record states
   const [isUploadingPdf, setIsUploadingPdf] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
   const [isUploadingMp3, setIsUploadingMp3] = useState(false);
+  const [isUploadingToSupabase, setIsUploadingToSupabase] = useState(false);
+  const [uploadSuccessMessage, setUploadSuccessMessage] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [vlibrasNotice, setVlibrasNotice] = useState(false);
 
@@ -270,27 +298,70 @@ export const TeacherLessonModal: React.FC<TeacherLessonModalProps> = ({
     setMp3Lessons((prev) => prev.filter((m) => m.id !== mp3Id));
   };
 
-  // ==================== PDF UPLOAD & GENERATION ====================
-  const handlePdfFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // ==================== MATERIAL UPLOAD & SUPABASE STORAGE ====================
+  const handleMaterialFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
     setIsUploadingPdf(true);
     setUploadError(null);
+    setUploadSuccessMessage(null);
 
     const file = files[0];
-    if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
-      setUploadError('Por favor, selecione apenas arquivos no formato PDF (.pdf).');
+    setSelectedFileName(file.name);
+    setUploadProgress(10);
+
+    // Valida se o formato está entre os permitidos: PDF, Word, PPT ou Imagem
+    const validation = isMaterialFileAllowed(file);
+    if (!validation.valid) {
+      setUploadError(validation.reason || 'Formato de arquivo não suportado.');
       setIsUploadingPdf(false);
+      setUploadProgress(null);
+      if (pdfInputRef.current) pdfInputRef.current.value = '';
       return;
     }
 
-    if (file.size > 20 * 1024 * 1024) {
-      setUploadError('O arquivo excede o limite recomendado de 20MB.');
-      setIsUploadingPdf(false);
-      return;
+    let storagePath = '';
+    let signedUrlPreview = '';
+
+    if (isSupabaseConfigured()) {
+      // Regra de segurança: Apenas professores autenticados podem enviar arquivos
+      if (!currentUser || currentUser.role !== 'professor') {
+        setUploadError('Apenas professores autenticados no Supabase têm permissão para enviar materiais. Faça login com sua conta de professor.');
+        setIsUploadingPdf(false);
+        setUploadProgress(null);
+        if (pdfInputRef.current) pdfInputRef.current.value = '';
+        return;
+      }
+
+      setIsUploadingToSupabase(true);
+      const storageResult = await supabaseUploadMaterial(
+        file, 
+        currentUser.id,
+        (progress) => setUploadProgress(progress)
+      );
+      setIsUploadingToSupabase(false);
+
+      if (storageResult.success && storageResult.storagePath) {
+        storagePath = storageResult.storagePath;
+        signedUrlPreview = storageResult.signedUrl || '';
+        setUploadProgress(100);
+        
+        // Salva o caminho do arquivo na coluna material_url da tabela
+        setMaterialUrl(storagePath);
+        setMaterialName(storageResult.fileName || file.name);
+        setMaterialType(storageResult.fileType || file.type);
+        setMaterialSize(storageResult.fileSizeFormatted || '');
+        setUploadSuccessMessage(`Material "${file.name}" anexado e armazenado com sucesso no bucket privado "${SUPABASE_BUCKET_MATERIAIS}" na pasta do professor (${currentUser.id})!`);
+        setTimeout(() => setUploadProgress(null), 2500);
+      } else {
+        console.warn('Erro ao enviar para Supabase Storage:', storageResult.error);
+        setUploadError(`Erro no Supabase Storage: ${storageResult.error}. Verifique suas políticas de acesso.`);
+        setUploadProgress(null);
+      }
     }
 
+    // Leitura local para pré-visualização imediata no formulário
     const reader = new FileReader();
     reader.onload = () => {
       const result = reader.result as string;
@@ -300,12 +371,12 @@ export const TeacherLessonModal: React.FC<TeacherLessonModalProps> = ({
           : `${Math.round(file.size / 1024)} KB`;
 
       const newPdf: LessonPdfFile = {
-        id: 'pdf-' + Date.now(),
+        id: 'mat-' + Date.now(),
         name: file.name,
         sizeFormatted,
-        dataUrl: result,
+        dataUrl: signedUrlPreview || storagePath || result,
         uploadedAt: new Date().toLocaleDateString('pt-BR'),
-        description: `Material de aula anexado pelo professor em ${new Date().toLocaleDateString('pt-BR')}`
+        description: `Material anexado pelo professor (${file.type || 'documento'}) em ${new Date().toLocaleDateString('pt-BR')}`
       };
 
       setPdfFiles((prev) => [...prev, newPdf]);
@@ -316,26 +387,37 @@ export const TeacherLessonModal: React.FC<TeacherLessonModalProps> = ({
     };
 
     reader.onerror = () => {
-      setUploadError('Erro ao carregar o arquivo PDF.');
+      setUploadError('Erro ao processar arquivo localmente.');
       setIsUploadingPdf(false);
     };
 
     reader.readAsDataURL(file);
   };
 
+  const handleTestSignedUrl = async (pathOrUrl: string) => {
+    const res = await supabaseCreateSignedUrl(pathOrUrl, 3600);
+    if (res.success && res.signedUrl) {
+      window.open(res.signedUrl, '_blank', 'noopener,noreferrer');
+    } else {
+      setUploadError(res.error || 'Não foi possível gerar link temporário assinado.');
+    }
+  };
+
   const handleGeneratePdfFromText = () => {
     if (!title.trim()) {
-      setUploadError('Preencha ao menos o Título da Aula antes de gerar a apostila em PDF.');
+      setUploadError('Preencha ao menos o Título antes de gerar a apostila em PDF.');
       return;
     }
 
     const lines = [
-      `Aula: ${title}`,
+      `${tipo === 'atividade' ? 'Atividade' : 'Aula'}: ${title}`,
       `Disciplina: ${subject}`,
       `Docente: ${teacherName}`,
+      deadline ? `Prazo de Entrega: ${deadline}` : '',
       '',
       'Resumo:',
       summary || 'Sem resumo fornecido.',
+      instructions ? `Instruções: ${instructions}` : '',
       '',
       'Conteúdo Programático:',
       ...(fullContent.split('\n').filter((l) => l.trim().length > 0))
@@ -344,11 +426,11 @@ export const TeacherLessonModal: React.FC<TeacherLessonModalProps> = ({
     const generatedDataUrl = generatePdfDataUrl(title, teacherName, subject, lines);
     const newPdf: LessonPdfFile = {
       id: 'pdf-gen-' + Date.now(),
-      name: `Apostila_${title.replace(/\s+/g, '_').substring(0, 20)}.pdf`,
+      name: `Material_${title.replace(/\s+/g, '_').substring(0, 20)}.pdf`,
       sizeFormatted: '145 KB',
       dataUrl: generatedDataUrl,
       uploadedAt: new Date().toLocaleDateString('pt-BR'),
-      description: 'Apostila PDF gerada automaticamente a partir do conteúdo digitado da aula.'
+      description: 'Apostila PDF gerada a partir do conteúdo digitado.'
     };
 
     setPdfFiles((prev) => [...prev, newPdf]);
@@ -363,7 +445,7 @@ export const TeacherLessonModal: React.FC<TeacherLessonModalProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) {
-      setUploadError('O título da aula é obrigatório.');
+      setUploadError(`O título da ${tipo === 'atividade' ? 'atividade' : 'aula'} é obrigatório.`);
       return;
     }
 
@@ -373,7 +455,7 @@ export const TeacherLessonModal: React.FC<TeacherLessonModalProps> = ({
       .filter((t) => t.length > 0);
 
     const savedLesson: Lesson = {
-      id: lessonToEdit ? lessonToEdit.id : 'aula-' + Date.now(),
+      id: lessonToEdit ? lessonToEdit.id : 'pub-' + Date.now(),
       title: title.trim(),
       subject,
       teacherName: teacherName.trim(),
@@ -386,7 +468,16 @@ export const TeacherLessonModal: React.FC<TeacherLessonModalProps> = ({
       mp3Lessons,
       isCompleted: lessonToEdit?.isCompleted ?? false,
       studentNotes: lessonToEdit?.studentNotes ?? '',
-      tags: tags.length > 0 ? tags : [subject]
+      tags: tags.length > 0 ? tags : [subject, tipo],
+      tipo,
+      instructions: instructions.trim(),
+      deadline: deadline || null,
+      materialUrl: materialUrl || (pdfFiles.length > 0 ? pdfFiles[0].dataUrl : null),
+      materialName: materialName || (pdfFiles.length > 0 ? pdfFiles[0].name : null),
+      materialType: materialType || (pdfFiles.length > 0 ? 'application/pdf' : null),
+      materialSize: materialSize || (pdfFiles.length > 0 ? pdfFiles[0].sizeFormatted : null),
+      professorId: currentUser?.id || lessonToEdit?.professorId,
+      isFromSupabase: lessonToEdit?.isFromSupabase ?? isSupabaseConfigured()
     };
 
     onSave(savedLesson);
@@ -408,7 +499,9 @@ export const TeacherLessonModal: React.FC<TeacherLessonModalProps> = ({
                 </span>
               </div>
               <h2 className="text-lg font-black text-black">
-                {lessonToEdit ? 'Editar Aula & Materiais' : 'Cadastrar Nova Aula com PDFs e MP3'}
+                {lessonToEdit 
+                  ? `Editar ${tipo === 'atividade' ? 'Atividade' : 'Aula'} & Materiais` 
+                  : `Cadastrar Nova ${tipo === 'atividade' ? 'Atividade' : 'Aula'} com Materiais & MP3`}
               </h2>
             </div>
           </div>
@@ -450,26 +543,76 @@ export const TeacherLessonModal: React.FC<TeacherLessonModalProps> = ({
           </div>
         )}
 
+        {/* Success notification */}
+        {uploadSuccessMessage && (
+          <div className="mx-6 mt-4 p-3.5 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-800 text-xs sm:text-sm font-bold flex items-center justify-between animate-in fade-in">
+            <span>{uploadSuccessMessage}</span>
+            <button
+              onClick={() => setUploadSuccessMessage(null)}
+              className="text-emerald-900 font-black hover:underline"
+            >
+              Fechar
+            </button>
+          </div>
+        )}
+
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="p-6 space-y-6 max-h-[78vh] overflow-y-auto">
+          {/* Seletor Tipo: Aula vs Atividade */}
+          <div className="space-y-2">
+            <label className="text-xs font-black uppercase tracking-wider text-slate-700 block">
+              Tipo de Publicação:
+            </label>
+            <div className="grid grid-cols-2 gap-2 bg-stone-100 p-1.5 rounded-2xl border border-stone-300">
+              <button
+                type="button"
+                onClick={() => setTipo('aula')}
+                className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-black transition ${
+                  tipo === 'aula'
+                    ? 'bg-orange-300 text-stone-900 border border-orange-400 shadow-xs'
+                    : 'text-stone-700 hover:text-stone-900 hover:bg-stone-200'
+                }`}
+              >
+                <BookOpen className="h-4 w-4" />
+                <span>Cadastrar Aula (Didática & MP3)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setTipo('atividade')}
+                className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-black transition ${
+                  tipo === 'atividade'
+                    ? 'bg-orange-300 text-stone-900 border border-orange-400 shadow-xs'
+                    : 'text-stone-700 hover:text-stone-900 hover:bg-stone-200'
+                }`}
+              >
+                <FileCheck className="h-4 w-4" />
+                <span>Cadastrar Atividade (com Prazo)</span>
+              </button>
+            </div>
+          </div>
+
           {/* Section 1: Informações Gerais */}
           <div className="space-y-4">
-            <h3 className="text-xs font-black uppercase tracking-wider text-black border-b border-slate-200 pb-2">
-              1. Informações Básicas da Aula
+            <h3 className="text-xs font-black uppercase tracking-wider text-black border-b border-slate-200 pb-2 flex items-center justify-between">
+              <span>1. Informações Básicas {tipo === 'atividade' ? 'da Atividade' : 'da Aula'}</span>
+              <span className="text-[10px] px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-300 font-bold uppercase">
+                {tipo === 'atividade' ? 'Atividade' : 'Aula'}
+              </span>
             </h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="sm:col-span-2 space-y-1.5">
                 <label className="text-xs font-extrabold uppercase tracking-wider text-black flex items-center gap-1">
-                  Título da Aula <span className="text-rose-600">*</span>
+                  Título {tipo === 'atividade' ? 'da Atividade' : 'da Aula'} <span className="text-rose-600">*</span>
                 </label>
                 <input
                   type="text"
                   required
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Ex: Introdução a Redes e Periféricos Inclusivos"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-300 text-black text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-black"
+                  placeholder={tipo === 'atividade' ? 'Ex: Atividade Prática 01 - Atalhos de Acessibilidade' : 'Ex: Introdução a Redes e Periféricos Inclusivos'}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-300 text-black text-sm font-semibold focus:outline-hidden focus:ring-2 focus:ring-black"
                 />
               </div>
 
@@ -480,7 +623,7 @@ export const TeacherLessonModal: React.FC<TeacherLessonModalProps> = ({
                 <select
                   value={subject}
                   onChange={(e) => setSubject(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-300 text-black text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-black"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-300 text-black text-sm font-semibold focus:outline-hidden focus:ring-2 focus:ring-black"
                 >
                   {SUBJECTS.map((subj) => (
                     <option key={subj} value={subj}>
@@ -491,17 +634,17 @@ export const TeacherLessonModal: React.FC<TeacherLessonModalProps> = ({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="space-y-1.5">
                 <label className="text-xs font-extrabold uppercase tracking-wider text-black">
-                  Professor / Instrutor
+                  Professor Responsável
                 </label>
                 <input
                   type="text"
                   value={teacherName}
                   onChange={(e) => setTeacherName(e.target.value)}
                   placeholder="Seu nome"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-300 text-black text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-black"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-300 text-black text-sm font-semibold focus:outline-hidden focus:ring-2 focus:ring-black"
                 />
               </div>
 
@@ -513,21 +656,48 @@ export const TeacherLessonModal: React.FC<TeacherLessonModalProps> = ({
                   type="date"
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-300 text-black text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-black"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-300 text-black text-sm font-semibold focus:outline-hidden focus:ring-2 focus:ring-black"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-extrabold uppercase tracking-wider text-black flex items-center justify-between">
+                  <span>Prazo de Entrega</span>
+                  <span className="text-[10px] text-slate-500 font-bold">(Opcional)</span>
+                </label>
+                <input
+                  type="date"
+                  value={deadline}
+                  onChange={(e) => setDeadline(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-300 text-black text-sm font-semibold focus:outline-hidden focus:ring-2 focus:ring-black"
                 />
               </div>
             </div>
 
             <div className="space-y-1.5">
               <label className="text-xs font-extrabold uppercase tracking-wider text-black">
-                Resumo Rápido da Aula
+                Descrição Geral {tipo === 'atividade' ? 'da Atividade' : 'da Aula'}
               </label>
               <textarea
                 rows={2}
                 value={summary}
                 onChange={(e) => setSummary(e.target.value)}
                 placeholder="Breve resumo dos conceitos e objetivos que serão aprendidos..."
-                className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-300 text-black text-sm font-medium focus:outline-none focus:ring-2 focus:ring-black"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-300 text-black text-sm font-medium focus:outline-hidden focus:ring-2 focus:ring-black"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-extrabold uppercase tracking-wider text-black flex items-center justify-between">
+                <span>Instruções e Orientações {tipo === 'atividade' ? 'para Entrega' : 'de Estudo'}</span>
+                <span className="text-[10px] text-slate-500 font-bold">(Opcional)</span>
+              </label>
+              <textarea
+                rows={2}
+                value={instructions}
+                onChange={(e) => setInstructions(e.target.value)}
+                placeholder="Ex: Como entregar, passos da atividade, critérios de avaliação ou orientações pedagógicas..."
+                className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-300 text-black text-sm font-medium focus:outline-hidden focus:ring-2 focus:ring-black"
               />
             </div>
 
@@ -711,16 +881,16 @@ export const TeacherLessonModal: React.FC<TeacherLessonModalProps> = ({
             )}
           </div>
 
-          {/* Section 3: Upload e Anexo de PDFs */}
+          {/* Section 3: Anexo de Materiais Didáticos (PDF, Word, PowerPoint e Imagens) */}
           <div className="space-y-4 pt-2">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-2">
               <div>
                 <h3 className="text-xs font-black uppercase tracking-wider text-black flex items-center gap-1.5">
                   <FileText className="h-4 w-4 text-black" />
-                  3. Materiais de Estudo e Apostilas em PDF
+                  3. Materiais Didáticos & Anexos (PDF, Word, PowerPoint e Imagens)
                 </h3>
                 <p className="text-xs text-slate-600 font-medium mt-0.5">
-                  Anexe arquivos PDF ou gere uma apostila diagramada com um clique.
+                  Anexe arquivos do computador salvos no bucket privado <span className="font-bold text-black font-mono">materiais-aulas</span> na pasta do seu ID de professor.
                 </p>
               </div>
 
@@ -732,7 +902,7 @@ export const TeacherLessonModal: React.FC<TeacherLessonModalProps> = ({
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-black hover:bg-slate-800 text-white text-xs font-black transition shadow-xs"
                 >
                   <Upload className="h-3.5 w-3.5" />
-                  <span>{isUploadingPdf ? 'Carregando...' : 'Upload de Arquivo PDF'}</span>
+                  <span>{isUploadingPdf ? 'Enviando ao Storage...' : 'Selecionar Arquivo'}</span>
                 </button>
 
                 <button
@@ -747,59 +917,132 @@ export const TeacherLessonModal: React.FC<TeacherLessonModalProps> = ({
               </div>
             </div>
 
+            {/* Input com formatos permitidos: PDF, Word, PowerPoint e Imagens */}
             <input
               ref={pdfInputRef}
               type="file"
-              accept="application/pdf,.pdf"
-              onChange={handlePdfFileChange}
+              accept=".pdf,.doc,.docx,.ppt,.pptx,.png,.jpg,.jpeg,.webp,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,image/png,image/jpeg,image/webp"
+              onChange={handleMaterialFileChange}
               className="hidden"
             />
 
-            {/* List of Attached PDFs */}
+            {/* Formatos Suportados Badge */}
+            <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-600 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+              <span className="font-bold text-black flex items-center gap-1">
+                <Lock className="h-3 w-3 text-emerald-700" /> Formatos aceitos:
+              </span>
+              <span className="px-2 py-0.5 rounded-md bg-rose-100 text-rose-800 font-black">.pdf</span>
+              <span className="px-2 py-0.5 rounded-md bg-blue-100 text-blue-800 font-black">.doc / .docx (Word)</span>
+              <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 font-black">.ppt / .pptx (PowerPoint)</span>
+              <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 font-black">.png / .jpg / .webp (Imagens)</span>
+              <span className="ml-auto text-slate-500 text-[10px]">
+                Organização: <code className="text-black font-semibold">{currentUser?.id ? `${currentUser.id.slice(0, 8)}.../` : 'ID_PROFESSOR/'}arquivo.ext</code>
+              </span>
+            </div>
+
+            {/* Barra de Progresso do Envio (Supabase Storage) */}
+            {uploadProgress !== null && (
+              <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 space-y-2.5 animate-in fade-in">
+                <div className="flex items-center justify-between text-xs font-black text-amber-950">
+                  <span className="flex items-center gap-2">
+                    <Upload className="h-4 w-4 animate-bounce text-amber-700" />
+                    Enviando arquivo selecionado: <span className="font-mono text-black font-extrabold">{selectedFileName}</span>
+                  </span>
+                  <span className="font-mono font-black text-sm text-emerald-800">{uploadProgress}%</span>
+                </div>
+                <div className="w-full bg-amber-200/70 h-3 rounded-full overflow-hidden p-0.5">
+                  <div 
+                    className="bg-emerald-600 h-full rounded-full transition-all duration-200"
+                    style={{ width: `${uploadProgress}%` }}
+                  />
+                </div>
+                <div className="flex items-center justify-between text-[11px] text-amber-900 font-semibold">
+                  <span>Destino: bucket privado <code className="font-mono font-bold text-black">materiais-aulas/{currentUser?.id ? `${currentUser.id.slice(0, 8)}.../` : ''}</code></span>
+                  <span>{uploadProgress === 100 ? 'Concluído ✓' : 'Gravando no Storage...'}</span>
+                </div>
+              </div>
+            )}
+
+            {/* List of Attached Files */}
             {pdfFiles.length === 0 ? (
               <div 
                 onClick={() => pdfInputRef.current?.click()}
-                className="border-2 border-dashed border-slate-300 hover:border-black rounded-2xl p-5 text-center cursor-pointer transition bg-white"
+                className="border-2 border-dashed border-slate-300 hover:border-black rounded-2xl p-6 text-center cursor-pointer transition bg-white"
               >
-                <FileText className="h-9 w-9 text-slate-400 mx-auto mb-2" />
-                <p className="text-sm font-bold text-black">Nenhum PDF anexado ainda</p>
+                <Upload className="h-8 w-8 text-slate-400 mx-auto mb-2" />
+                <p className="text-sm font-bold text-black">Nenhum arquivo anexado ainda</p>
                 <p className="text-xs text-slate-500 mt-1">
-                  Clique para anexar apostilas, resumos e atividades em formato .pdf
+                  Clique aqui ou no botão acima para selecionar PDFs, documentos Word, slides PowerPoint ou imagens do seu computador.
                 </p>
               </div>
             ) : (
               <div className="space-y-2">
-                {pdfFiles.map((pdf) => (
-                  <div
-                    key={pdf.id}
-                    className="flex items-center justify-between p-3.5 rounded-xl bg-white border border-slate-200 shadow-xs gap-3"
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-black text-white font-black">
-                        <FileCheck className="h-5 w-5 text-white" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-black text-black truncate">
-                          {pdf.name}
-                        </p>
-                        <p className="text-xs text-slate-500 font-medium">
-                          Tamanho: <span className="font-bold text-black">{pdf.sizeFormatted}</span> &bull; Anexado em {pdf.uploadedAt}
-                        </p>
-                      </div>
-                    </div>
+                {pdfFiles.map((pdf) => {
+                  const cat = getMaterialCategory(pdf.name);
+                  const isImage = cat === 'image';
 
-                    <div className="flex items-center gap-2 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => handleRemovePdf(pdf.id)}
-                        className="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition"
-                        title="Remover este arquivo PDF"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                  return (
+                    <div
+                      key={pdf.id}
+                      className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-xl bg-white border border-slate-200 shadow-xs gap-3"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl font-black ${
+                          cat === 'pdf' ? 'bg-rose-100 text-rose-700' :
+                          cat === 'word' ? 'bg-blue-100 text-blue-700' :
+                          cat === 'powerpoint' ? 'bg-amber-100 text-amber-700' :
+                          cat === 'image' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-black'
+                        }`}>
+                          {cat === 'image' ? (
+                            <ImageIcon className="h-5 w-5 text-emerald-700" />
+                          ) : (
+                            <FileText className="h-5 w-5" />
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-black text-black truncate" title={pdf.name}>
+                              {pdf.name}
+                            </p>
+                            <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-md ${
+                              cat === 'pdf' ? 'bg-rose-100 text-rose-800' :
+                              cat === 'word' ? 'bg-blue-100 text-blue-800' :
+                              cat === 'powerpoint' ? 'bg-amber-100 text-amber-800' :
+                              cat === 'image' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-black'
+                            }`}>
+                              {cat.toUpperCase()}
+                            </span>
+                          </div>
+                          <p className="text-xs text-slate-500 font-medium mt-0.5">
+                            Tamanho: <span className="font-bold text-black">{pdf.sizeFormatted}</span> &bull; {pdf.uploadedAt}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+                        {/* Testar Link Temporário Assinado */}
+                        <button
+                          type="button"
+                          onClick={() => handleTestSignedUrl(pdf.dataUrl || materialUrl || pdf.name)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-black text-white hover:bg-slate-800 text-xs font-bold transition shadow-2xs"
+                          title="Abrir o material usando URL assinada temporária do Supabase Storage"
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" />
+                          <span>Testar Link Seguro</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleRemovePdf(pdf.id)}
+                          className="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition"
+                          title="Remover este anexo"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

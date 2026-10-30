@@ -17,10 +17,19 @@ import {
   Check,
   Type,
   FileAudio,
-  Bot
+  Bot,
+  Clock,
+  FileCheck,
+  Image as ImageIcon,
+  Loader2
 } from 'lucide-react';
 import { Lesson, LessonPdfFile } from '../types';
 import { Mp3VideoLessonPlayer } from './Mp3VideoLessonPlayer';
+import { 
+  getMaterialCategory, 
+  supabaseOpenOrDownloadMaterial, 
+  supabaseCreateSignedUrl 
+} from '../lib/supabase';
 
 interface StudentLessonDetailModalProps {
   lesson: Lesson;
@@ -46,6 +55,33 @@ export const StudentLessonDetailModal: React.FC<StudentLessonDetailModalProps> =
   const [notes, setNotes] = useState(lesson.studentNotes || '');
   const [notesSaved, setNotesSaved] = useState(false);
   const [readingTextSize, setReadingTextSize] = useState<'normal' | 'grande' | 'gigante'>('normal');
+  const [isGeneratingUrl, setIsGeneratingUrl] = useState<'open' | 'download' | null>(null);
+  const [activeMaterialPath, setActiveMaterialPath] = useState<string | null>(null);
+  const [materialError, setMaterialError] = useState<string | null>(null);
+
+  const handleOpenMaterial = async (pathOrUrl: string, name?: string) => {
+    setIsGeneratingUrl('open');
+    setActiveMaterialPath(pathOrUrl);
+    setMaterialError(null);
+    const res = await supabaseOpenOrDownloadMaterial(pathOrUrl, name, 'open');
+    if (!res.success) {
+      setMaterialError(res.error || 'Erro ao abrir material assinado.');
+    }
+    setIsGeneratingUrl(null);
+    setActiveMaterialPath(null);
+  };
+
+  const handleDownloadMaterial = async (pathOrUrl: string, name?: string) => {
+    setIsGeneratingUrl('download');
+    setActiveMaterialPath(pathOrUrl);
+    setMaterialError(null);
+    const res = await supabaseOpenOrDownloadMaterial(pathOrUrl, name, 'download');
+    if (!res.success) {
+      setMaterialError(res.error || 'Erro ao baixar material assinado.');
+    }
+    setIsGeneratingUrl(null);
+    setActiveMaterialPath(null);
+  };
 
   const handleSaveNotes = () => {
     onUpdateNotes(lesson.id, notes);
@@ -94,6 +130,13 @@ export const StudentLessonDetailModal: React.FC<StudentLessonDetailModalProps> =
             </div>
             <div>
               <div className="flex items-center gap-2">
+                <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md border ${
+                  lesson.tipo === 'atividade'
+                    ? 'bg-amber-100 text-amber-950 border-amber-300 font-black'
+                    : 'bg-slate-100 text-black border-slate-300'
+                }`}>
+                  {lesson.tipo === 'atividade' ? '📝 Atividade' : '📚 Aula'}
+                </span>
                 <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-slate-100 text-black border border-slate-300">
                   {lesson.subject}
                 </span>
@@ -209,14 +252,41 @@ export const StudentLessonDetailModal: React.FC<StudentLessonDetailModalProps> =
 
         {/* Modal Scrollable Body */}
         <div className="p-6 space-y-6 max-h-[75vh] overflow-y-auto">
+          {/* Prazo de Entrega da Atividade */}
+          {lesson.deadline && (
+            <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-300 text-amber-950 flex flex-wrap items-center justify-between gap-2 text-xs">
+              <div className="flex items-center gap-2">
+                <Clock className="h-4 w-4 text-amber-700 shrink-0" />
+                <span className="font-black">Prazo de Entrega da Atividade:</span>
+                <span className="font-bold underline">{lesson.deadline}</span>
+              </div>
+              <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-md bg-amber-200 text-amber-950 border border-amber-400">
+                Data Limite
+              </span>
+            </div>
+          )}
+
           {/* Summary Card */}
           {lesson.summary && (
             <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200">
               <h3 className="text-xs font-black uppercase tracking-wider text-black mb-1">
-                Resumo da Aula
+                {lesson.tipo === 'atividade' ? 'Descrição da Atividade' : 'Resumo da Aula'}
               </h3>
               <p className="text-sm font-semibold text-slate-800 leading-relaxed">
                 {lesson.summary}
+              </p>
+            </div>
+          )}
+
+          {/* Instruções do Professor */}
+          {lesson.instructions && (
+            <div className="p-4 rounded-2xl bg-orange-50 border border-orange-200 space-y-1">
+              <h3 className="text-xs font-black uppercase tracking-wider text-stone-900 flex items-center gap-1.5">
+                <FileCheck className="h-4 w-4 text-stone-700" />
+                Instruções do Professor
+              </h3>
+              <p className="text-sm font-semibold text-stone-800 whitespace-pre-line leading-relaxed">
+                {lesson.instructions}
               </p>
             </div>
           )}
@@ -267,80 +337,176 @@ export const StudentLessonDetailModal: React.FC<StudentLessonDetailModalProps> =
             </div>
           )}
 
-          {/* SECTION: ATTACHED PDF FILES */}
-          <div className="p-5 rounded-2xl bg-white border border-slate-300 space-y-4">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-200">
-              <div className="flex items-center gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-black text-white font-bold">
-                  <FileText className="h-4 w-4 text-white" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-black text-black">
-                    Arquivos em PDF para Estudo ({lesson.pdfFiles.length})
-                  </h3>
-                  <p className="text-xs text-slate-500 font-medium">
-                    Apostilas, resumos e exercícios anexados pelo professor
-                  </p>
-                </div>
-              </div>
-            </div>
+          {/* SECTION: MATERIAIS ANEXADOS PARA ESTUDO & ATIVIDADES */}
+          {(() => {
+            const allMaterials: Array<{
+              id: string;
+              name: string;
+              pathOrUrl: string;
+              sizeFormatted: string;
+              type: string;
+              description?: string;
+              rawPdf?: LessonPdfFile;
+            }> = [];
 
-            {lesson.pdfFiles.length === 0 ? (
-              <p className="text-xs text-slate-500 italic">
-                Nenhum arquivo PDF anexado para esta aula.
-              </p>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {lesson.pdfFiles.map((file) => (
-                  <div
-                    key={file.id}
-                    className="p-4 rounded-2xl bg-slate-50 hover:bg-slate-100 border border-slate-200 transition space-y-3"
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-black text-white font-black shadow-xs">
-                        <FileText className="h-5 w-5 text-white" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <h4 className="text-xs font-black text-black truncate" title={file.name}>
-                          {file.name}
-                        </h4>
-                        <p className="text-[11px] text-slate-500 mt-0.5">
-                          Tamanho: <span className="font-bold text-black">{file.sizeFormatted}</span> &bull; {file.uploadedAt}
-                        </p>
-                      </div>
+            if (lesson.materialUrl) {
+              allMaterials.push({
+                id: 'mat-primary',
+                name: lesson.materialName || (lesson.tipo === 'atividade' ? 'Instrucoes_Atividade' : 'Material_Didatico'),
+                pathOrUrl: lesson.materialUrl,
+                sizeFormatted: lesson.materialSize || 'Anexo',
+                type: lesson.materialType || 'application/octet-stream',
+                description: `Material privado hospedado no bucket materiais-aulas`
+              });
+            }
+
+            if (lesson.pdfFiles && lesson.pdfFiles.length > 0) {
+              lesson.pdfFiles.forEach((f) => {
+                // Evita duplicar se for o mesmo arquivo principal
+                if (!lesson.materialUrl || (f.name !== lesson.materialName && f.dataUrl !== lesson.materialUrl)) {
+                  allMaterials.push({
+                    id: f.id,
+                    name: f.name,
+                    pathOrUrl: f.dataUrl,
+                    sizeFormatted: f.sizeFormatted,
+                    type: 'application/pdf',
+                    description: f.description,
+                    rawPdf: f
+                  });
+                }
+              });
+            }
+
+            return (
+              <div className="p-5 rounded-2xl bg-white border border-slate-300 space-y-4">
+                <div className="flex flex-wrap items-center justify-between pb-2 border-b border-slate-200 gap-2">
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-black text-white font-bold">
+                      <FileText className="h-4 w-4 text-white" />
                     </div>
-
-                    {file.description && (
-                      <p className="text-xs text-slate-600 line-clamp-2">
-                        {file.description}
+                    <div>
+                      <h3 className="text-sm font-black text-black">
+                        Materiais de Apoio & Anexos ({allMaterials.length})
+                      </h3>
+                      <p className="text-xs text-slate-500 font-medium">
+                        Arquivos anexados pelo professor para consulta e realização da {lesson.tipo === 'atividade' ? 'atividade' : 'aula'}
                       </p>
-                    )}
-
-                    {/* PDF Actions */}
-                    <div className="flex items-center gap-2 pt-1 border-t border-slate-200">
-                      <button
-                        onClick={() => onOpenPdf(file, lesson.title)}
-                        className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-black hover:bg-slate-800 text-white text-xs font-bold transition shadow-xs"
-                      >
-                        <Eye className="h-3.5 w-3.5" />
-                        <span>Visualizar PDF</span>
-                      </button>
-
-                      <a
-                        href={file.dataUrl}
-                        download={file.name}
-                        className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white hover:bg-slate-200 text-black border border-slate-300 text-xs font-bold transition"
-                        title="Baixar arquivo PDF"
-                      >
-                        <Download className="h-3.5 w-3.5" />
-                        <span className="hidden sm:inline">Baixar</span>
-                      </a>
                     </div>
                   </div>
-                ))}
+
+                  <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
+                    Bucket Privado Seguro
+                  </span>
+                </div>
+
+                {materialError && (
+                  <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs font-bold text-rose-800 flex items-center gap-2">
+                    <span>{materialError}</span>
+                  </div>
+                )}
+
+                {allMaterials.length === 0 ? (
+                  <p className="text-xs text-slate-500 italic py-2">
+                    Nenhum material adicional foi anexado para esta publicação.
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {allMaterials.map((file) => {
+                      const cat = getMaterialCategory(file.name);
+                      const isOpeningThis = isGeneratingUrl === 'open' && activeMaterialPath === file.pathOrUrl;
+                      const isDownloadingThis = isGeneratingUrl === 'download' && activeMaterialPath === file.pathOrUrl;
+
+                      return (
+                        <div
+                          key={file.id}
+                          className="p-4 rounded-2xl bg-slate-50 hover:bg-slate-100/80 border border-slate-200 transition space-y-3"
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl font-black ${
+                              cat === 'pdf' ? 'bg-rose-100 text-rose-700' :
+                              cat === 'word' ? 'bg-blue-100 text-blue-700' :
+                              cat === 'powerpoint' ? 'bg-amber-100 text-amber-700' :
+                              cat === 'image' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-black'
+                            }`}>
+                              {cat === 'image' ? (
+                                <ImageIcon className="h-5 w-5 text-emerald-700" />
+                              ) : (
+                                <FileText className="h-5 w-5" />
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <h4 className="text-xs font-black text-black truncate" title={file.name}>
+                                  {file.name}
+                                </h4>
+                                <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded-sm ${
+                                  cat === 'pdf' ? 'bg-rose-100 text-rose-800' :
+                                  cat === 'word' ? 'bg-blue-100 text-blue-800' :
+                                  cat === 'powerpoint' ? 'bg-amber-100 text-amber-800' :
+                                  cat === 'image' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-black'
+                                }`}>
+                                  {cat.toUpperCase()}
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-slate-500 mt-0.5">
+                                Tamanho: <span className="font-bold text-black">{file.sizeFormatted}</span>
+                              </p>
+                            </div>
+                          </div>
+
+                          {file.description && (
+                            <p className="text-xs text-slate-600 line-clamp-2">
+                              {file.description}
+                            </p>
+                          )}
+
+                          {/* Botões do Aluno: Abrir material & Baixar material com links assinados temporários */}
+                          <div className="flex items-center gap-2 pt-2 border-t border-slate-200">
+                            {/* Botão Abrir Material */}
+                            <button
+                              type="button"
+                              onClick={() => handleOpenMaterial(file.pathOrUrl, file.name)}
+                              disabled={Boolean(isGeneratingUrl)}
+                              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-black hover:bg-slate-800 text-white text-xs font-bold transition shadow-xs disabled:opacity-50"
+                              title="Abrir o material no navegador via link seguro assinado (createSignedUrl)"
+                            >
+                              {isOpeningThis ? (
+                                <>
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  <span>Abrindo...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <ExternalLink className="h-3.5 w-3.5" />
+                                  <span>Abrir material</span>
+                                </>
+                              )}
+                            </button>
+
+                            {/* Botão Baixar Material */}
+                            <button
+                              type="button"
+                              onClick={() => handleDownloadMaterial(file.pathOrUrl, file.name)}
+                              disabled={Boolean(isGeneratingUrl)}
+                              className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white hover:bg-slate-200 text-black border border-slate-300 text-xs font-bold transition disabled:opacity-50"
+                              title="Baixar material para o computador via link temporário assinado"
+                            >
+                              {isDownloadingThis ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <Download className="h-3.5 w-3.5" />
+                              )}
+                              <span>Baixar material</span>
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            );
+          })()}
 
           {/* Full Lesson Text Content */}
           <div className="space-y-3">

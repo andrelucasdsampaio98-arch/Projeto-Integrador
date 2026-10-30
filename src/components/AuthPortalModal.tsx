@@ -18,7 +18,9 @@ import {
   Mail,
   ArrowRight,
   ShieldCheck,
-  CheckCircle2
+  CheckCircle2,
+  Database,
+  RefreshCw
 } from 'lucide-react';
 import { UserAccount, UserRole } from '../types';
 import { 
@@ -27,6 +29,12 @@ import {
   getStoredUsers, 
   INITIAL_USERS 
 } from '../data/authUsersData';
+import { 
+  isSupabaseConfigured, 
+  supabaseSignIn, 
+  supabaseSignUp 
+} from '../lib/supabase';
+import { SupabaseConfigModal } from './SupabaseConfigModal';
 
 interface AuthPortalModalProps {
   isOpen: boolean;
@@ -45,6 +53,8 @@ export const AuthPortalModal: React.FC<AuthPortalModalProps> = ({
 }) => {
   const [activeRole, setActiveRole] = useState<UserRole>(initialRole);
   const [activeTab, setActiveTab] = useState<'login' | 'cadastro'>('login');
+  const [showSupabaseModal, setShowSupabaseModal] = useState(false);
+  const [isLoadingAuth, setIsLoadingAuth] = useState(false);
 
   // Login form state
   const [loginMatricula, setLoginMatricula] = useState('');
@@ -64,11 +74,50 @@ export const AuthPortalModal: React.FC<AuthPortalModalProps> = ({
   if (!isOpen) return null;
 
   // Handle Login submission
-  const handleLoginSubmit = (e: React.FormEvent) => {
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError(null);
+    setIsLoadingAuth(true);
 
+    // Se o Supabase estiver configurado, tenta autenticar via Supabase Auth
+    if (isSupabaseConfigured()) {
+      let emailToUse = loginMatricula.trim();
+      if (!emailToUse.includes('@')) {
+        const stored = getStoredUsers().find(
+          (u) => u.matricula.toLowerCase() === loginMatricula.trim().toLowerCase()
+        );
+        if (stored && stored.email) {
+          emailToUse = stored.email;
+        } else {
+          emailToUse = `${loginMatricula.trim().toLowerCase()}@escola.edu.br`;
+        }
+      }
+
+      const sbResult = await supabaseSignIn(emailToUse, loginSenha);
+      if (sbResult.success && sbResult.user) {
+        setIsLoadingAuth(false);
+        onSuccessLogin(sbResult.user);
+        return;
+      }
+
+      // Se falhar no Supabase, tenta autenticação com usuário de demonstração local
+      const localResult = authenticateUser(loginMatricula, loginSenha, activeRole);
+      if (localResult.success && localResult.user) {
+        setIsLoadingAuth(false);
+        onSuccessLogin(localResult.user);
+        return;
+      }
+
+      setIsLoadingAuth(false);
+      setLoginError(
+        sbResult.error || 'Credenciais inválidas. Verifique os dados informados no Supabase.'
+      );
+      return;
+    }
+
+    // Modo local / demonstração
     const result = authenticateUser(loginMatricula, loginSenha, activeRole);
+    setIsLoadingAuth(false);
     if (result.success && result.user) {
       onSuccessLogin(result.user);
     } else {
@@ -107,7 +156,7 @@ export const AuthPortalModal: React.FC<AuthPortalModalProps> = ({
   };
 
   // Handle Registration submission
-  const handleRegisterSubmit = (e: React.FormEvent) => {
+  const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setRegError(null);
     setRegSuccess(null);
@@ -127,14 +176,41 @@ export const AuthPortalModal: React.FC<AuthPortalModalProps> = ({
       return;
     }
 
+    const finalEmail = regEmail.trim() || `${regMatricula.trim().toLowerCase()}@escola.edu.br`;
+    setIsLoadingAuth(true);
+
+    // Se o Supabase estiver configurado:
+    if (isSupabaseConfigured()) {
+      // REGRA DE SEGURANÇA: Todo novo usuário é cadastrado como 'aluno'
+      // O papel de professor só pode ser concedido diretamente no banco por um administrador
+      const sbResult = await supabaseSignUp(finalEmail, regConfirmMatricula, {
+        name: regName.trim(),
+        matricula: regMatricula.trim(),
+        turmaOuArea: regTurmaOuArea.trim() || 'Geral'
+      });
+
+      setIsLoadingAuth(false);
+      if (sbResult.success && sbResult.user) {
+        setRegSuccess('Cadastro realizado no Supabase com sucesso! Perfil criado como Aluno.');
+        setTimeout(() => {
+          onSuccessLogin(sbResult.user!);
+        }, 800);
+        return;
+      } else {
+        setRegError(sbResult.error || 'Erro ao realizar cadastro no Supabase.');
+        return;
+      }
+    }
+
     const result = registerNewUser({
       name: regName,
       matricula: regMatricula,
       role: activeRole,
       turmaOuArea: regTurmaOuArea || (activeRole === 'professor' ? 'Docência Inclusiva' : 'Ensino Médio / Fundamental'),
-      email: regEmail
+      email: finalEmail
     });
 
+    setIsLoadingAuth(false);
     if (result.success && result.user) {
       setRegSuccess('Cadastro realizado com sucesso! Conectando ao sistema...');
       setTimeout(() => {
@@ -191,6 +267,24 @@ export const AuthPortalModal: React.FC<AuthPortalModalProps> = ({
               <X className="h-4 w-4" />
             </button>
           )}
+        </div>
+
+        {/* Barra de Status da Conexão Supabase */}
+        <div className="flex items-center justify-between p-2.5 rounded-2xl bg-stone-100 border border-stone-200 text-xs">
+          <div className="flex items-center gap-2">
+            <div className={`h-2.5 w-2.5 rounded-full ${isSupabaseConfigured() ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
+            <span className="font-extrabold text-stone-900">
+              {isSupabaseConfigured() ? 'Supabase Conectado' : 'Modo Demonstração (Local)'}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowSupabaseModal(true)}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white hover:bg-stone-200 border border-stone-300 font-extrabold text-[11px] text-stone-900 shadow-2xs transition"
+          >
+            <Database className="h-3 w-3 text-emerald-600" />
+            <span>Configurar Supabase</span>
+          </button>
         </div>
 
         {/* Modo de Acesso: Já Tenho Cadastro e Primeiro Acesso (Posicionado ACIMA) */}
@@ -356,10 +450,20 @@ export const AuthPortalModal: React.FC<AuthPortalModalProps> = ({
             {/* Submit Button */}
             <button
               type="submit"
-              className="w-full py-3 px-4 rounded-xl bg-orange-300 hover:bg-orange-400 text-stone-900 border border-orange-400 font-black text-sm flex items-center justify-center gap-2 transition shadow-xs"
+              disabled={isLoadingAuth}
+              className="w-full py-3 px-4 rounded-xl bg-orange-300 hover:bg-orange-400 text-stone-900 border border-orange-400 font-black text-sm flex items-center justify-center gap-2 transition shadow-xs disabled:opacity-50"
             >
-              <LogIn className="h-4 w-4" />
-              <span>Entrar no Sistema</span>
+              {isLoadingAuth ? (
+                <>
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                  <span>Autenticando com Supabase...</span>
+                </>
+              ) : (
+                <>
+                  <LogIn className="h-4 w-4" />
+                  <span>Entrar no Sistema</span>
+                </>
+              )}
             </button>
 
             {/* Quick Demo Access Buttons */}
@@ -425,6 +529,18 @@ export const AuthPortalModal: React.FC<AuthPortalModalProps> = ({
                   Cadastre seus dados educacionais. <strong>Sua senha de acesso será o seu número de matrícula</strong> registrado aqui.
                 </p>
               </div>
+            </div>
+
+            {/* Aviso de Segurança de Perfis */}
+            <div className="p-3 rounded-xl bg-[#fff7ed] border border-orange-200 text-[11px] text-stone-800 space-y-1">
+              <span className="font-black text-stone-900 block flex items-center gap-1.5">
+                <ShieldCheck className="h-3.5 w-3.5 text-orange-600" />
+                Segurança Institucional de Perfis:
+              </span>
+              <p>
+                Por segurança, todo novo cadastro no banco de dados inicia com o perfil de <strong>Aluno</strong>. 
+                A concessão ou alteração do papel de <strong>Professor</strong> é restrita ao administrador escolar no Supabase.
+              </p>
             </div>
 
             {regError && (
@@ -588,6 +704,12 @@ export const AuthPortalModal: React.FC<AuthPortalModalProps> = ({
         )}
 
       </div>
+
+      {/* Modal de Configuração e Diagnóstico do Supabase */}
+      <SupabaseConfigModal
+        isOpen={showSupabaseModal}
+        onClose={() => setShowSupabaseModal(false)}
+      />
     </div>
   );
 };

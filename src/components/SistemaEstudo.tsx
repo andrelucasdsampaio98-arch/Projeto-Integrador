@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   GraduationCap, 
   BookOpen, 
@@ -27,14 +27,39 @@ import {
   ShieldCheck,
   Mic,
   ArrowRight,
-  Headphones
+  Headphones,
+  Database,
+  RefreshCw,
+  FileCheck,
+  Image as ImageIcon,
+  Loader2,
+  ExternalLink
 } from 'lucide-react';
-import { Lesson, LessonPdfFile, LessonMp3Video, UserRole, AppSettings, UserAccount } from '../types';
+import { 
+  Lesson, 
+  LessonPdfFile, 
+  LessonMp3Video, 
+  UserRole, 
+  AppSettings, 
+  UserAccount, 
+  AulaAtividade, 
+  TipoPublicacao 
+} from '../types';
 import { INITIAL_LESSONS } from '../data/lessonsData';
 import { TeacherLessonModal } from './TeacherLessonModal';
 import { StudentLessonDetailModal } from './StudentLessonDetailModal';
 import { PdfViewerModal } from './PdfViewerModal';
 import { Mp3VideoLessonPlayer } from './Mp3VideoLessonPlayer';
+import { 
+  isSupabaseConfigured, 
+  supabaseFetchAulasAtividades, 
+  supabaseCreateAulaAtividade, 
+  supabaseUpdateAulaAtividade, 
+  supabaseDeleteAulaAtividade,
+  supabaseOpenOrDownloadMaterial,
+  getMaterialCategory
+} from '../lib/supabase';
+import { SupabaseConfigModal } from './SupabaseConfigModal';
 
 interface SistemaEstudoProps {
   settings: AppSettings;
@@ -49,6 +74,53 @@ interface SistemaEstudoProps {
 
 const STORAGE_KEY = 'ponte_sistema_estudo_aulas';
 const ROLE_STORAGE_KEY = 'ponte_sistema_estudo_role';
+
+/**
+ * Converte um registro da tabela 'aulas_atividades' do Supabase para a estrutura 'Lesson'
+ */
+function mapAulaAtividadeToLesson(item: AulaAtividade): Lesson {
+  const dateStr = item.criado_em 
+    ? item.criado_em.split('T')[0] 
+    : (item.data_criacao ? item.data_criacao.split('T')[0] : new Date().toISOString().split('T')[0]);
+  
+  const deadlineStr = item.prazo || item.prazo_entrega || null;
+  const fileName = item.material_nome || (item.material_url ? item.material_url.split('/').pop() : null) || (item.tipo === 'atividade' ? 'Atividade_Anexa.pdf' : 'Material_Aula.pdf');
+  const pdfFiles: LessonPdfFile[] = [];
+
+  if (item.material_url) {
+    pdfFiles.push({
+      id: 'mat-' + item.id,
+      name: fileName,
+      sizeFormatted: item.material_tamanho || 'Anexo',
+      dataUrl: item.material_url,
+      uploadedAt: item.criado_em ? new Date(item.criado_em).toLocaleDateString('pt-BR') : (item.data_criacao ? new Date(item.data_criacao).toLocaleDateString('pt-BR') : ''),
+      description: `Material armazenado no Supabase Storage (materiais-aulas)`
+    });
+  }
+
+  return {
+    id: item.id,
+    title: item.titulo,
+    subject: item.disciplina || 'Geral',
+    teacherName: item.professor_nome || 'Prof. Docente',
+    date: dateStr,
+    summary: item.descricao,
+    fullContent: item.instrucoes || item.descricao,
+    accessibleTranscript: `Publicação de ${item.tipo === 'atividade' ? 'Atividade' : 'Aula'}: ${item.titulo}. Professor: ${item.professor_nome || 'Docente'}. ${item.descricao}`,
+    tags: [item.disciplina || 'Geral', item.tipo],
+    pdfFiles,
+    mp3Lessons: [],
+    tipo: item.tipo,
+    instructions: item.instrucoes || '',
+    deadline: deadlineStr,
+    professorId: item.professor_id,
+    materialUrl: item.material_url || null,
+    materialName: fileName,
+    materialType: item.material_tipo || null,
+    materialSize: item.material_tamanho || null,
+    isFromSupabase: true,
+  };
+}
 
 export const SistemaEstudo: React.FC<SistemaEstudoProps> = ({
   settings,
@@ -73,17 +145,15 @@ export const SistemaEstudo: React.FC<SistemaEstudoProps> = ({
 
   const userRole = propUserRole || internalRole;
 
-  const handleRoleChange = (role: UserRole) => {
-    setInternalRole(role);
-    if (propOnRoleChange) {
-      propOnRoleChange(role);
-    }
-    try {
-      localStorage.setItem(ROLE_STORAGE_KEY, role);
-    } catch {
-      // fallback
-    }
-  };
+  // Notification banner
+  const [notification, setNotification] = useState<{
+    type: 'success' | 'error';
+    message: string;
+  } | null>(null);
+
+  // Supabase Modal State
+  const [showSupabaseModal, setShowSupabaseModal] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   // Lessons list
   const [lessons, setLessons] = useState<Lesson[]>(() => {
@@ -108,14 +178,55 @@ export const SistemaEstudo: React.FC<SistemaEstudoProps> = ({
     }
   }, [lessons]);
 
+  // Sincronização com o Supabase
+  const syncWithSupabase = useCallback(async (showFeedback = false) => {
+    if (!isSupabaseConfigured()) return;
+    setIsSyncing(true);
+    try {
+      const res = await supabaseFetchAulasAtividades();
+      if (res.success && res.data && res.data.length > 0) {
+        const mappedLessons = res.data.map(mapAulaAtividadeToLesson);
+        setLessons(mappedLessons);
+        if (showFeedback) {
+          setNotification({
+            type: 'success',
+            message: `${res.data.length} publicações sincronizadas com o banco de dados Supabase!`,
+          });
+          setTimeout(() => setNotification(null), 4000);
+        }
+      } else if (res.error) {
+        if (showFeedback) {
+          setNotification({
+            type: 'error',
+            message: `Erro ao sincronizar com Supabase: ${res.error}`,
+          });
+          setTimeout(() => setNotification(null), 5000);
+        }
+      }
+    } catch (err: any) {
+      console.error('Falha na sincronização com Supabase:', err);
+    } finally {
+      setIsSyncing(false);
+    }
+  }, []);
+
+  // Sincronizar na montagem se configurado
+  useEffect(() => {
+    if (isSupabaseConfigured()) {
+      syncWithSupabase();
+    }
+  }, [syncWithSupabase]);
+
   // Search & Filter state
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSubject, setSelectedSubject] = useState<string>('Todas');
+  const [selectedTipo, setSelectedTipo] = useState<'todos' | 'aula' | 'atividade' | 'minhas'>('todos');
   const [selectedMediaType, setSelectedMediaType] = useState<'todos' | 'com-mp3' | 'com-pdf'>('todos');
   const [selectedStatus, setSelectedStatus] = useState<'todos' | 'pendentes' | 'concluidas'>('todos');
 
   // Modals state
   const [isTeacherModalOpen, setIsTeacherModalOpen] = useState(false);
+  const [teacherModalDefaultTipo, setTeacherModalDefaultTipo] = useState<TipoPublicacao>('aula');
   const [editingLesson, setEditingLesson] = useState<Lesson | null>(null);
   const [activeDetailLesson, setActiveDetailLesson] = useState<Lesson | null>(null);
   const [activePdfViewer, setActivePdfViewer] = useState<{
@@ -127,8 +238,51 @@ export const SistemaEstudo: React.FC<SistemaEstudoProps> = ({
     lessonTitle: string;
   } | null>(null);
 
+  // Estado e handlers para download e abertura segura com createSignedUrl
+  const [downloadingMaterialKey, setDownloadingMaterialKey] = useState<string | null>(null);
+
+  const handleOpenMaterialDirect = async (pathOrUrl: string, name?: string) => {
+    setDownloadingMaterialKey(`${pathOrUrl}-open`);
+    const res = await supabaseOpenOrDownloadMaterial(pathOrUrl, name, 'open');
+    if (!res.success) {
+      setNotification({
+        type: 'error',
+        message: res.error || 'Erro ao gerar link de acesso ao material.'
+      });
+      setTimeout(() => setNotification(null), 4000);
+    }
+    setDownloadingMaterialKey(null);
+  };
+
+  const handleDownloadMaterialDirect = async (pathOrUrl: string, name?: string) => {
+    setDownloadingMaterialKey(`${pathOrUrl}-download`);
+    const res = await supabaseOpenOrDownloadMaterial(pathOrUrl, name, 'download');
+    if (!res.success) {
+      setNotification({
+        type: 'error',
+        message: res.error || 'Erro ao baixar o material.'
+      });
+      setTimeout(() => setNotification(null), 4000);
+    }
+    setDownloadingMaterialKey(null);
+  };
+
   // Extract unique subjects
   const availableSubjects = ['Todas', ...Array.from(new Set(lessons.map((l) => l.subject)))];
+
+  /**
+   * Verifica se a publicação pertence ao professor ativo
+   * Requisito: "Listar, editar e excluir somente as publicações do próprio professor."
+   */
+  const isAuthorTeacher = (lesson: Lesson): boolean => {
+    if (userRole !== 'professor') return false;
+    if (!lesson.isFromSupabase) return true; // aulas locais de exemplo
+    if (!currentUser) return false;
+    return (
+      (Boolean(lesson.professorId) && lesson.professorId === currentUser.id) ||
+      lesson.teacherName.toLowerCase() === currentUser.name.toLowerCase()
+    );
+  };
 
   // Filter lessons
   const filteredLessons = lessons.filter((lesson) => {
@@ -140,17 +294,28 @@ export const SistemaEstudo: React.FC<SistemaEstudoProps> = ({
 
     const matchesSubject = selectedSubject === 'Todas' || lesson.subject === selectedSubject;
 
+    const matchesTipo =
+      selectedTipo === 'todos' ||
+      (selectedTipo === 'aula' && (lesson.tipo === 'aula' || !lesson.tipo)) ||
+      (selectedTipo === 'atividade' && lesson.tipo === 'atividade') ||
+      (selectedTipo === 'minhas' && isAuthorTeacher(lesson));
+
     const matchesMediaType =
       selectedMediaType === 'todos' ||
       (selectedMediaType === 'com-mp3' && lesson.mp3Lessons && lesson.mp3Lessons.length > 0) ||
-      (selectedMediaType === 'com-pdf' && lesson.pdfFiles && lesson.pdfFiles.length > 0);
+      (selectedMediaType === 'com-pdf' && ((lesson.pdfFiles && lesson.pdfFiles.length > 0) || Boolean(lesson.materialUrl)));
 
     const matchesStatus = 
       selectedStatus === 'todos' ||
       (selectedStatus === 'concluidas' && lesson.isCompleted) ||
       (selectedStatus === 'pendentes' && !lesson.isCompleted);
 
-    return matchesSearch && matchesSubject && matchesMediaType && matchesStatus;
+    return matchesSearch && matchesSubject && matchesTipo && matchesMediaType && matchesStatus;
+  });
+
+  // Requisito: "Ordenar as publicações da mais recente para a mais antiga."
+  const sortedLessons = [...filteredLessons].sort((a, b) => {
+    return new Date(b.date).getTime() - new Date(a.date).getTime();
   });
 
   // Toggle completed state
@@ -177,8 +342,77 @@ export const SistemaEstudo: React.FC<SistemaEstudoProps> = ({
     }
   };
 
-  // Save new or edited lesson
-  const handleSaveLesson = (savedLesson: Lesson) => {
+  // Save new or edited publication
+  const handleSaveLesson = async (savedLesson: Lesson) => {
+    setIsTeacherModalOpen(false);
+    const wasEditing = Boolean(editingLesson);
+    setEditingLesson(null);
+
+    // Se estiver conectado ao Supabase
+    if (isSupabaseConfigured()) {
+      setIsSyncing(true);
+      if (wasEditing && savedLesson.isFromSupabase) {
+        // Atualização no Supabase
+        const updateRes = await supabaseUpdateAulaAtividade(savedLesson.id, {
+          titulo: savedLesson.title,
+          descricao: savedLesson.summary,
+          instrucoes: savedLesson.instructions || '',
+          tipo: savedLesson.tipo || 'aula',
+          disciplina: savedLesson.subject,
+          prazo_entrega: savedLesson.deadline || null,
+          material_url: savedLesson.materialUrl || null,
+          material_nome: savedLesson.materialName || null,
+          material_tipo: savedLesson.materialType || null,
+          material_tamanho: savedLesson.materialSize || null,
+        });
+
+        if (updateRes.success) {
+          setNotification({
+            type: 'success',
+            message: `${savedLesson.tipo === 'atividade' ? 'Atividade' : 'Aula'} atualizada com sucesso no Supabase!`,
+          });
+          await syncWithSupabase();
+        } else {
+          setNotification({
+            type: 'error',
+            message: `Erro ao atualizar no Supabase: ${updateRes.error || 'Apenas o autor pode editar.'}`,
+          });
+        }
+      } else {
+        // Criação no Supabase
+        const createRes = await supabaseCreateAulaAtividade({
+          titulo: savedLesson.title,
+          descricao: savedLesson.summary,
+          instrucoes: savedLesson.instructions || '',
+          tipo: savedLesson.tipo || 'aula',
+          professor_nome: savedLesson.teacherName || currentUser?.name || 'Prof. Docente',
+          disciplina: savedLesson.subject,
+          prazo_entrega: savedLesson.deadline || null,
+          material_url: savedLesson.materialUrl || null,
+          material_nome: savedLesson.materialName || null,
+          material_tipo: savedLesson.materialType || null,
+          material_tamanho: savedLesson.materialSize || null,
+        });
+
+        if (createRes.success) {
+          setNotification({
+            type: 'success',
+            message: `${savedLesson.tipo === 'atividade' ? 'Atividade' : 'Aula'} publicada com sucesso no Supabase!`,
+          });
+          await syncWithSupabase();
+        } else {
+          setNotification({
+            type: 'error',
+            message: `Erro ao publicar no Supabase: ${createRes.error || 'Apenas professores autorizados podem publicar.'}`,
+          });
+        }
+      }
+      setIsSyncing(false);
+      setTimeout(() => setNotification(null), 5000);
+      return;
+    }
+
+    // Modo local / demonstração
     setLessons((prev) => {
       const exists = prev.some((l) => l.id === savedLesson.id);
       if (exists) {
@@ -187,18 +421,52 @@ export const SistemaEstudo: React.FC<SistemaEstudoProps> = ({
         return [savedLesson, ...prev];
       }
     });
-    setIsTeacherModalOpen(false);
-    setEditingLesson(null);
+
+    setNotification({
+      type: 'success',
+      message: `${savedLesson.tipo === 'atividade' ? 'Atividade' : 'Aula'} salva no armazenamento local com sucesso!`,
+    });
+    setTimeout(() => setNotification(null), 4000);
   };
 
-  // Delete lesson
-  const handleDeleteLesson = (lessonId: string) => {
-    if (confirm('Tem certeza que deseja excluir esta aula, videoaulas em MP3 e arquivos PDF anexados?')) {
-      setLessons((prev) => prev.filter((l) => l.id !== lessonId));
-      if (activeDetailLesson?.id === lessonId) {
-        setActiveDetailLesson(null);
-      }
+  // Delete publication
+  const handleDeleteLesson = async (lessonId: string) => {
+    const lessonToDelete = lessons.find((l) => l.id === lessonId);
+    if (!confirm(`Tem certeza que deseja excluir "${lessonToDelete?.title || 'esta publicação'}"?`)) {
+      return;
     }
+
+    // Exclusão no Supabase com validação RLS
+    if (isSupabaseConfigured() && lessonToDelete?.isFromSupabase) {
+      setIsSyncing(true);
+      const delRes = await supabaseDeleteAulaAtividade(lessonId);
+      if (delRes.success) {
+        setNotification({
+          type: 'success',
+          message: 'Publicação excluída com sucesso do banco de dados Supabase!',
+        });
+        await syncWithSupabase();
+      } else {
+        setNotification({
+          type: 'error',
+          message: `Erro ao excluir do Supabase: ${delRes.error || 'Apenas o professor autor pode excluir esta publicação.'}`,
+        });
+      }
+      setIsSyncing(false);
+      setTimeout(() => setNotification(null), 5000);
+      return;
+    }
+
+    // Exclusão local
+    setLessons((prev) => prev.filter((l) => l.id !== lessonId));
+    if (activeDetailLesson?.id === lessonId) {
+      setActiveDetailLesson(null);
+    }
+    setNotification({
+      type: 'success',
+      message: 'Publicação removida com sucesso!',
+    });
+    setTimeout(() => setNotification(null), 4000);
   };
 
   // Reset to initial demo lessons
@@ -226,6 +494,8 @@ export const SistemaEstudo: React.FC<SistemaEstudoProps> = ({
 
   // Count stats
   const totalLessons = lessons.length;
+  const totalAulasCount = lessons.filter((l) => l.tipo === 'aula' || !l.tipo).length;
+  const totalAtividadesCount = lessons.filter((l) => l.tipo === 'atividade').length;
   const completedCount = lessons.filter((l) => l.isCompleted).length;
   const totalPdfsCount = lessons.reduce((acc, l) => acc + (l.pdfFiles ? l.pdfFiles.length : 0), 0);
   const totalMp3Count = lessons.reduce((acc, l) => acc + (l.mp3Lessons ? l.mp3Lessons.length : 0), 0);
@@ -233,7 +503,9 @@ export const SistemaEstudo: React.FC<SistemaEstudoProps> = ({
   return (
     <div className="space-y-6 text-black">
       {/* Top Banner: Distinct Access Indicator & Role Selector */}
-      <div className="rounded-3xl bg-white border border-slate-200 p-5 sm:p-7 shadow-xs space-y-6">
+      <div className="rounded-3xl bg-white border border-slate-200 p-5 sm:p-7 shadow-xs space-y-5">
+        
+        {/* Top Header Row with Supabase Connection Badge */}
         <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-200">
           <div>
             <div className="flex items-center gap-2">
@@ -248,23 +520,23 @@ export const SistemaEstudo: React.FC<SistemaEstudoProps> = ({
               {userRole === 'professor' ? (
                 <>
                   <BookOpen className="h-6 w-6 text-black" />
-                  <span>Acesso do Professor &bull; Gestão de Aulas, MP3 & PDFs</span>
+                  <span>Painel do Professor &bull; Gestão de Aulas, Atividades & Materiais</span>
                 </>
               ) : (
                 <>
                   <GraduationCap className="h-6 w-6 text-black" />
-                  <span>Acesso do Aluno &bull; Estudo, Videoaulas em MP3 & Libras</span>
+                  <span>Painel do Aluno &bull; Aulas, Atividades & Materiais em Libras</span>
                 </>
               )}
             </h2>
             <p className="text-xs sm:text-sm text-slate-600 font-medium max-w-2xl mt-1">
               {userRole === 'professor'
-                ? 'Painel exclusivo de docentes. Publique videoaulas em áudio MP3, anexe apostilas em PDF e use o Boneco do VLibras para validar a tradução em sinais.'
-                : 'Área do estudante. Acesse suas aulas, ouça as videoaulas em MP3 com tradução direta pelo Boneco 3D do VLibras, leia PDFs e marque matérias estudadas.'}
+                ? 'Painel docente exclusivo. Cadastre aulas e atividades, anexe apostilas em PDF pelo Supabase Storage e gerencie apenas suas publicações.'
+                : 'Portal do estudante. Consulte as aulas e atividades mais recentes, faça download dos materiais autorizados e acompanhe seus prazos.'}
             </p>
           </div>
 
-          {/* Visual Indicator of Current Dedicated Access with User and Matricula */}
+          {/* User badge & Supabase config action */}
           <div className="flex flex-col sm:flex-row items-end sm:items-center gap-2">
             <div className="flex items-center gap-2.5 px-4 py-2 rounded-2xl bg-slate-100 border border-slate-300 text-xs font-black shadow-xs">
               {userRole === 'professor' ? (
@@ -304,6 +576,16 @@ export const SistemaEstudo: React.FC<SistemaEstudoProps> = ({
               )}
             </div>
 
+            <button
+              type="button"
+              onClick={() => setShowSupabaseModal(true)}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white hover:bg-slate-100 border border-slate-300 text-[11px] font-extrabold text-black transition shadow-2xs"
+              title="Ver status de conexão e script SQL do Supabase"
+            >
+              <Database className="h-3.5 w-3.5 text-emerald-600" />
+              <span>{isSupabaseConfigured() ? 'Supabase Conectado' : 'Supabase (Configurar)'}</span>
+            </button>
+
             {onOpenLogin && (
               <button
                 type="button"
@@ -317,6 +599,30 @@ export const SistemaEstudo: React.FC<SistemaEstudoProps> = ({
           </div>
         </div>
 
+        {/* Global Operation Notification Banner */}
+        {notification && (
+          <div className={`p-3.5 rounded-2xl border text-xs sm:text-sm font-bold flex items-center justify-between gap-3 animate-in fade-in ${
+            notification.type === 'success'
+              ? 'bg-emerald-50 border-emerald-300 text-emerald-900'
+              : 'bg-rose-50 border-rose-300 text-rose-900'
+          }`}>
+            <div className="flex items-center gap-2">
+              {notification.type === 'success' ? (
+                <CheckCircle2 className="h-4 w-4 text-emerald-700 shrink-0" />
+              ) : (
+                <AlertCircle className="h-4 w-4 text-rose-700 shrink-0" />
+              )}
+              <span>{notification.message}</span>
+            </div>
+            <button
+              onClick={() => setNotification(null)}
+              className="font-black text-xs hover:underline px-2 py-0.5"
+            >
+              Fechar
+            </button>
+          </div>
+        )}
+
         {/* Dynamic Portal Environment Description */}
         {userRole === 'professor' ? (
           <div className="p-4 sm:p-5 rounded-2xl bg-stone-50 border-2 border-stone-300 space-y-3">
@@ -328,44 +634,67 @@ export const SistemaEstudo: React.FC<SistemaEstudoProps> = ({
                 <div>
                   <div className="flex items-center gap-2">
                     <h3 className="text-sm sm:text-base font-black text-stone-900">
-                      Painel Pedagógico do Professor
+                      Painel do Professor &bull; Gestão Pedagógica
                     </h3>
                     <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-orange-300 text-stone-900 border border-orange-400">
-                      Modo Gestão Ativo
+                      Docente Autorizado
                     </span>
                   </div>
                   <p className="text-xs text-stone-600 font-medium">
-                    Cadastre conteúdos com videoaulas em áudio MP3, apostilas em PDF e teste a tradução em Libras com o Boneco do VLibras.
+                    Publique aulas e atividades com prazos, anexe PDFs no Supabase Storage e gerencie apenas suas publicações.
                   </p>
                 </div>
               </div>
 
-              {/* Action Buttons for Teacher */}
+              {/* Action Buttons for Teacher: Cadastrar Aula & Cadastrar Atividade */}
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   onClick={() => {
                     setEditingLesson(null);
+                    setTeacherModalDefaultTipo('aula');
                     setIsTeacherModalOpen(true);
                   }}
-                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-orange-300 hover:bg-orange-400 text-stone-900 border border-orange-400 text-xs font-black transition shadow-xs"
+                  className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-orange-300 hover:bg-orange-400 text-stone-900 border border-orange-400 text-xs font-black transition shadow-xs"
                 >
                   <Plus className="h-4 w-4" />
-                  <span>+ Cadastrar Nova Aula (PDFs & MP3)</span>
+                  <span>+ Cadastrar Aula</span>
                 </button>
 
                 <button
-                  onClick={() => handleQuickTriggerVLibras('Testando tradução de aula no Boneco do VLibras')}
+                  onClick={() => {
+                    setEditingLesson(null);
+                    setTeacherModalDefaultTipo('atividade');
+                    setIsTeacherModalOpen(true);
+                  }}
+                  className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-amber-200 hover:bg-amber-300 text-stone-900 border border-amber-400 text-xs font-black transition shadow-xs"
+                >
+                  <FileCheck className="h-4 w-4" />
+                  <span>+ Cadastrar Atividade</span>
+                </button>
+
+                <button
+                  onClick={() => syncWithSupabase(true)}
+                  disabled={isSyncing}
+                  className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-white hover:bg-stone-100 text-stone-800 border border-stone-300 text-xs font-bold transition shadow-xs disabled:opacity-50"
+                  title="Atualizar dados do Supabase"
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+                  <span>Sincronizar</span>
+                </button>
+
+                <button
+                  onClick={() => handleQuickTriggerVLibras('Testando tradução pedagógica no Boneco do VLibras')}
                   className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-white hover:bg-stone-100 text-stone-800 border border-stone-300 text-xs font-bold transition shadow-xs"
                   title="Abrir o Boneco do VLibras para testar tradução"
                 >
                   <Bot className="h-4 w-4 text-stone-900" />
-                  <span>Testar Boneco VLibras</span>
+                  <span>Testar VLibras</span>
                 </button>
 
                 <button
                   onClick={handleResetLessons}
                   className="p-2.5 rounded-xl bg-white hover:bg-stone-100 text-stone-800 border border-stone-300 text-xs font-bold transition"
-                  title="Restaurar aulas modelo padrão com PDFs e MP3s"
+                  title="Restaurar aulas modelo padrão"
                 >
                   <RotateCcw className="h-4 w-4" />
                 </button>
@@ -382,29 +711,41 @@ export const SistemaEstudo: React.FC<SistemaEstudoProps> = ({
                 <div>
                   <div className="flex items-center gap-2">
                     <h3 className="text-sm sm:text-base font-black text-stone-900">
-                      Portal Exclusivo do Estudante
+                      Painel do Aluno &bull; Estudos & Atividades
                     </h3>
                     <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-orange-200 text-orange-950 border border-orange-300">
-                      Modo Aluno
+                      Estudante
                     </span>
                   </div>
                   <p className="text-xs text-stone-600 font-medium">
-                    Acesse suas aulas, ouça as videoaulas em MP3 acompanhadas pelo Boneco 3D do VLibras e faça download dos materiais em PDF.
+                    Acesse suas aulas, resolva atividades antes do prazo e baixe os materiais em PDF autorizados pelos professores.
                   </p>
                 </div>
               </div>
 
-              {/* Quick Progress Indicator */}
-              <div className="flex items-center gap-3 text-xs bg-white px-4 py-2.5 rounded-xl border border-slate-200 shadow-2xs">
-                <span className="text-slate-600 font-semibold">Progresso de Estudo:</span>
-                <span className="font-black text-black">
-                  {completedCount} de {totalLessons} concluídas
-                </span>
-                <div className="w-24 bg-stone-200 h-2 rounded-full overflow-hidden">
-                  <div
-                    className="bg-orange-400 h-full rounded-full transition-all"
-                    style={{ width: `${totalLessons > 0 ? (completedCount / totalLessons) * 100 : 0}%` }}
-                  />
+              {/* Quick Actions & Progress for Student */}
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={() => syncWithSupabase(true)}
+                  disabled={isSyncing}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white hover:bg-stone-100 text-stone-800 border border-stone-300 text-xs font-bold transition shadow-xs disabled:opacity-50"
+                  title="Atualizar listagem de publicações do Supabase"
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+                  <span>Atualizar Conteúdos</span>
+                </button>
+
+                <div className="flex items-center gap-3 text-xs bg-white px-3.5 py-2 rounded-xl border border-slate-200 shadow-2xs">
+                  <span className="text-slate-600 font-semibold">Concluídas:</span>
+                  <span className="font-black text-black">
+                    {completedCount} de {totalLessons}
+                  </span>
+                  <div className="w-20 bg-stone-200 h-2 rounded-full overflow-hidden">
+                    <div
+                      className="bg-orange-400 h-full rounded-full transition-all"
+                      style={{ width: `${totalLessons > 0 ? (completedCount / totalLessons) * 100 : 0}%` }}
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -415,26 +756,27 @@ export const SistemaEstudo: React.FC<SistemaEstudoProps> = ({
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div className="p-3.5 rounded-2xl bg-white border border-slate-200 shadow-2xs">
             <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
-              Total de Aulas
-            </span>
-            <span className="text-xl font-black text-black mt-0.5 block">
-              {totalLessons}
-            </span>
-          </div>
-
-          <div className="p-3.5 rounded-2xl bg-white border border-slate-200 shadow-2xs">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
-              Videoaulas em MP3
+              Aulas Publicadas
             </span>
             <span className="text-xl font-black text-black mt-0.5 block flex items-center gap-1.5">
-              <FileAudio className="h-4 w-4 text-black" />
-              {totalMp3Count}
+              <BookOpen className="h-4 w-4 text-black" />
+              {totalAulasCount}
             </span>
           </div>
 
           <div className="p-3.5 rounded-2xl bg-white border border-slate-200 shadow-2xs">
             <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
-              Arquivos PDF Anexados
+              Atividades Escolares
+            </span>
+            <span className="text-xl font-black text-black mt-0.5 block flex items-center gap-1.5">
+              <FileCheck className="h-4 w-4 text-black" />
+              {totalAtividadesCount}
+            </span>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-white border border-slate-200 shadow-2xs">
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+              Materiais & PDFs
             </span>
             <span className="text-xl font-black text-black mt-0.5 block flex items-center gap-1.5">
               <FileText className="h-4 w-4 text-black" />
@@ -444,7 +786,7 @@ export const SistemaEstudo: React.FC<SistemaEstudoProps> = ({
 
           <div className="p-3.5 rounded-2xl bg-white border border-slate-200 shadow-2xs">
             <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
-              {userRole === 'professor' ? 'Disciplinas Ativas' : 'Aulas Estudadas'}
+              {userRole === 'professor' ? 'Disciplinas Ativas' : 'Concluídas'}
             </span>
             <span className="text-xl font-black text-black mt-0.5 block">
               {userRole === 'professor' ? availableSubjects.length - 1 : completedCount}
@@ -453,98 +795,111 @@ export const SistemaEstudo: React.FC<SistemaEstudoProps> = ({
         </div>
       </div>
 
-      {/* Filter and Search Bar */}
+      {/* Search and Filters Bar */}
       <div className="rounded-3xl bg-white border border-slate-200 p-4 sm:p-5 shadow-xs space-y-4">
-        <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
+        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
           {/* Search Input */}
           <div className="relative flex-1">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-500" />
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Buscar por título, matéria, professor ou palavras-chave..."
-              className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white border border-slate-300 text-black text-sm font-semibold placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-black"
+              placeholder="Buscar por título, resumo, professor, matéria ou instruções..."
+              className="w-full pl-10 pr-4 py-2.5 rounded-2xl border border-stone-300 bg-stone-50 text-stone-900 text-xs sm:text-sm font-semibold focus:outline-hidden focus:ring-2 focus:ring-orange-400"
             />
             {searchTerm && (
               <button
                 onClick={() => setSearchTerm('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 hover:text-black"
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-stone-500 hover:text-black"
               >
                 Limpar
               </button>
             )}
           </div>
 
-          {/* Media Type Filter */}
-          <div className="flex items-center gap-1 bg-stone-100 p-1 rounded-xl border border-stone-200 self-start sm:self-auto">
+          {/* Tipo Filter: Todas, Aulas, Atividades, Minhas (para professores) */}
+          <div className="flex flex-wrap items-center gap-1 bg-stone-100 p-1 rounded-xl border border-stone-200">
+            <button
+              onClick={() => setSelectedTipo('todos')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                selectedTipo === 'todos'
+                  ? 'bg-orange-300 text-stone-900 border border-orange-400 font-black shadow-2xs'
+                  : 'text-stone-700 hover:text-stone-900 hover:bg-orange-50'
+              }`}
+            >
+              Todos ({lessons.length})
+            </button>
+            <button
+              onClick={() => setSelectedTipo('aula')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 ${
+                selectedTipo === 'aula'
+                  ? 'bg-orange-300 text-stone-900 border border-orange-400 font-black shadow-2xs'
+                  : 'text-stone-700 hover:text-stone-900 hover:bg-orange-50'
+              }`}
+            >
+              <BookOpen className="h-3 w-3" />
+              <span>Aulas</span>
+            </button>
+            <button
+              onClick={() => setSelectedTipo('atividade')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 ${
+                selectedTipo === 'atividade'
+                  ? 'bg-orange-300 text-stone-900 border border-orange-400 font-black shadow-2xs'
+                  : 'text-stone-700 hover:text-stone-900 hover:bg-orange-50'
+              }`}
+            >
+              <FileCheck className="h-3 w-3" />
+              <span>Atividades</span>
+            </button>
+            {userRole === 'professor' && (
+              <button
+                onClick={() => setSelectedTipo('minhas')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 ${
+                  selectedTipo === 'minhas'
+                    ? 'bg-orange-300 text-stone-900 border border-orange-400 font-black shadow-2xs'
+                    : 'text-stone-700 hover:text-stone-900 hover:bg-orange-50'
+                }`}
+                title="Filtrar apenas as publicações criadas por você"
+              >
+                <span>👤 Minhas</span>
+              </button>
+            )}
+          </div>
+
+          {/* Media Filter */}
+          <div className="flex items-center gap-1 bg-stone-100 p-1 rounded-xl border border-stone-200 self-start md:self-auto">
             <button
               onClick={() => setSelectedMediaType('todos')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition ${
                 selectedMediaType === 'todos'
                   ? 'bg-orange-300 text-stone-900 border border-orange-400 font-black shadow-2xs'
                   : 'text-stone-700 hover:text-stone-900 hover:bg-orange-50'
               }`}
             >
-              Todos os Materiais
-            </button>
-            <button
-              onClick={() => setSelectedMediaType('com-mp3')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 ${
-                selectedMediaType === 'com-mp3'
-                  ? 'bg-orange-300 text-stone-900 border border-orange-400 font-black shadow-2xs'
-                  : 'text-stone-700 hover:text-stone-900 hover:bg-orange-50'
-              }`}
-              title="Filtrar aulas com Videoaulas em MP3"
-            >
-              <FileAudio className="h-3 w-3" />
-              <span>Com MP3</span>
+              Mídia
             </button>
             <button
               onClick={() => setSelectedMediaType('com-pdf')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 ${
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 ${
                 selectedMediaType === 'com-pdf'
                   ? 'bg-orange-300 text-stone-900 border border-orange-400 font-black shadow-2xs'
                   : 'text-stone-700 hover:text-stone-900 hover:bg-orange-50'
               }`}
-              title="Filtrar aulas com Apostilas em PDF"
             >
               <FileText className="h-3 w-3" />
-              <span>Com PDF</span>
+              <span>PDF</span>
             </button>
-          </div>
-
-          {/* Status Filter */}
-          <div className="flex items-center gap-1 bg-stone-100 p-1 rounded-xl border border-stone-200 self-start sm:self-auto">
             <button
-              onClick={() => setSelectedStatus('todos')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                selectedStatus === 'todos'
+              onClick={() => setSelectedMediaType('com-mp3')}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 ${
+                selectedMediaType === 'com-mp3'
                   ? 'bg-orange-300 text-stone-900 border border-orange-400 font-black shadow-2xs'
                   : 'text-stone-700 hover:text-stone-900 hover:bg-orange-50'
               }`}
             >
-              Status: Todos
-            </button>
-            <button
-              onClick={() => setSelectedStatus('pendentes')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                selectedStatus === 'pendentes'
-                  ? 'bg-orange-300 text-stone-900 border border-orange-400 font-black shadow-2xs'
-                  : 'text-stone-700 hover:text-stone-900 hover:bg-orange-50'
-              }`}
-            >
-              A Estudar
-            </button>
-            <button
-              onClick={() => setSelectedStatus('concluidas')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                selectedStatus === 'concluidas'
-                  ? 'bg-orange-300 text-stone-900 border border-orange-400 font-black shadow-2xs'
-                  : 'text-stone-700 hover:text-stone-900 hover:bg-orange-50'
-              }`}
-            >
-              Concluídas
+              <FileAudio className="h-3 w-3" />
+              <span>MP3</span>
             </button>
           </div>
         </div>
@@ -570,39 +925,61 @@ export const SistemaEstudo: React.FC<SistemaEstudoProps> = ({
         </div>
       </div>
 
-      {/* Lessons List Grid */}
-      {filteredLessons.length === 0 ? (
+      {/* Publications Grid (Sorted Newest to Oldest) */}
+      {sortedLessons.length === 0 ? (
         <div className="rounded-3xl bg-white border border-slate-200 p-12 text-center shadow-xs space-y-3">
           <BookOpen className="h-12 w-12 text-slate-400 mx-auto" />
-          <h3 className="text-base font-black text-black">Nenhuma aula encontrada</h3>
+          <h3 className="text-base font-black text-black">Nenhum conteúdo encontrado</h3>
           <p className="text-xs text-slate-600 max-w-md mx-auto">
-            Não encontramos aulas com os filtros selecionados. Altere os termos da busca ou adicione novos materiais.
+            Não encontramos publicações com os filtros selecionados. Altere os termos da busca ou adicione novos materiais.
           </p>
           {userRole === 'professor' && (
-            <button
-              onClick={() => {
-                setEditingLesson(null);
-                setIsTeacherModalOpen(true);
-              }}
-              className="mt-2 px-4 py-2 rounded-xl bg-black text-white text-xs font-bold shadow-xs"
-            >
-              + Cadastrar Nova Aula
-            </button>
+            <div className="flex justify-center gap-2 pt-2">
+              <button
+                onClick={() => {
+                  setEditingLesson(null);
+                  setTeacherModalDefaultTipo('aula');
+                  setIsTeacherModalOpen(true);
+                }}
+                className="px-4 py-2 rounded-xl bg-orange-300 text-stone-900 border border-orange-400 text-xs font-black shadow-xs"
+              >
+                + Cadastrar Nova Aula
+              </button>
+              <button
+                onClick={() => {
+                  setEditingLesson(null);
+                  setTeacherModalDefaultTipo('atividade');
+                  setIsTeacherModalOpen(true);
+                }}
+                className="px-4 py-2 rounded-xl bg-amber-200 text-stone-900 border border-amber-400 text-xs font-black shadow-xs"
+              >
+                + Cadastrar Nova Atividade
+              </button>
+            </div>
           )}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {filteredLessons.map((lesson) => (
+          {sortedLessons.map((lesson) => (
             <div
               key={lesson.id}
               className="rounded-3xl bg-white border border-slate-200 p-5 shadow-xs hover:border-black transition flex flex-col justify-between space-y-4 group"
             >
-              {/* Card Header */}
+              {/* Card Header: Type Badge, Subject & Completed Status */}
               <div className="space-y-2.5">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-slate-100 text-black border border-slate-300">
-                    {lesson.subject}
-                  </span>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${
+                      lesson.tipo === 'atividade'
+                        ? 'bg-amber-100 text-amber-950 border-amber-300'
+                        : 'bg-orange-100 text-stone-900 border-orange-300'
+                    }`}>
+                      {lesson.tipo === 'atividade' ? '📝 Atividade' : '📚 Aula'}
+                    </span>
+                    <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-100 text-black border border-slate-300">
+                      {lesson.subject}
+                    </span>
+                  </div>
 
                   <div className="flex items-center gap-1.5">
                     {lesson.isCompleted ? (
@@ -631,9 +1008,17 @@ export const SistemaEstudo: React.FC<SistemaEstudoProps> = ({
                 <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed">
                   {lesson.summary || lesson.fullContent}
                 </p>
+
+                {/* Prazo de Entrega para Atividades */}
+                {lesson.deadline && (
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-[11px] font-bold">
+                    <Clock className="h-3.5 w-3.5 text-amber-700 shrink-0" />
+                    <span>Prazo de Entrega: {lesson.deadline}</span>
+                  </div>
+                )}
               </div>
 
-              {/* Videoaulas em MP3 Preview & VLibras Shortcut */}
+              {/* Videoaulas em MP3 Preview (se houver) */}
               {lesson.mp3Lessons && lesson.mp3Lessons.length > 0 && (
                 <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
                   <div className="flex items-center justify-between">
@@ -679,62 +1064,95 @@ export const SistemaEstudo: React.FC<SistemaEstudoProps> = ({
                 </div>
               )}
 
-              {/* PDF Attachments Preview */}
+              {/* Materiais Anexados do Supabase Storage (PDF, Word, PPT, Imagens) */}
               <div className="space-y-2 pt-2 border-t border-slate-100">
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-slate-500 font-semibold flex items-center gap-1">
-                    <Clock className="h-3 w-3" /> {lesson.date}
+                    <Calendar className="h-3 w-3" /> {lesson.date}
                   </span>
                   <span className="text-slate-800 font-bold truncate max-w-[140px]">
-                    {lesson.teacherName}
+                    Prof: {lesson.teacherName}
                   </span>
                 </div>
 
-                {lesson.pdfFiles && lesson.pdfFiles.length > 0 ? (
-                  <div className="flex flex-col gap-1.5">
-                    {lesson.pdfFiles.slice(0, 2).map((pdf) => (
-                      <div
-                        key={pdf.id}
-                        className="flex items-center justify-between p-2 rounded-xl bg-slate-50 border border-slate-200 text-xs gap-2"
-                      >
-                        <div className="flex items-center gap-1.5 min-w-0">
-                          <FileText className="h-3.5 w-3.5 text-black shrink-0" />
-                          <span className="font-bold text-black truncate max-w-[150px]">
-                            {pdf.name}
+                {(() => {
+                  const targetMaterialPath = lesson.materialUrl || (lesson.pdfFiles && lesson.pdfFiles.length > 0 ? lesson.pdfFiles[0].dataUrl : null);
+                  const targetMaterialName = lesson.materialName || (lesson.pdfFiles && lesson.pdfFiles.length > 0 ? lesson.pdfFiles[0].name : 'Material_Anexo');
+                  
+                  if (!targetMaterialPath) {
+                    return (
+                      <div className="p-2 rounded-xl bg-slate-50 border border-slate-100 text-center">
+                        <span className="text-[11px] text-slate-400 font-medium">
+                          Sem material anexado
+                        </span>
+                      </div>
+                    );
+                  }
+
+                  const cat = getMaterialCategory(targetMaterialName);
+                  const isOpening = downloadingMaterialKey === `${targetMaterialPath}-open`;
+                  const isDownloading = downloadingMaterialKey === `${targetMaterialPath}-download`;
+
+                  return (
+                    <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-2">
+                      <div className="flex items-center justify-between gap-1.5 min-w-0">
+                        <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                          <div className={`p-1 rounded-md shrink-0 ${
+                            cat === 'pdf' ? 'bg-rose-100 text-rose-800' :
+                            cat === 'word' ? 'bg-blue-100 text-blue-800' :
+                            cat === 'powerpoint' ? 'bg-amber-100 text-amber-800' :
+                            cat === 'image' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-black'
+                          }`}>
+                            {cat === 'image' ? (
+                              <ImageIcon className="h-3.5 w-3.5 text-emerald-800" />
+                            ) : (
+                              <FileText className="h-3.5 w-3.5" />
+                            )}
+                          </div>
+                          <span className="font-bold text-black truncate max-w-[140px]" title={targetMaterialName}>
+                            {targetMaterialName}
                           </span>
                         </div>
-                        <div className="flex items-center gap-1 shrink-0">
-                          <button
-                            onClick={() => setActivePdfViewer({ file: pdf, lessonTitle: lesson.title })}
-                            className="p-1 rounded-md bg-white hover:bg-slate-200 text-black border border-slate-300"
-                            title="Visualizar PDF"
-                          >
-                            <Eye className="h-3 w-3" />
-                          </button>
-                          <a
-                            href={pdf.dataUrl}
-                            download={pdf.name}
-                            className="p-1 rounded-md bg-white hover:bg-slate-200 text-black border border-slate-300"
-                            title="Baixar PDF"
-                          >
-                            <Download className="h-3 w-3" />
-                          </a>
-                        </div>
+                        <span className="text-[10px] font-black uppercase text-slate-500 shrink-0">
+                          {cat}
+                        </span>
                       </div>
-                    ))}
-                    {lesson.pdfFiles.length > 2 && (
-                      <span className="text-[11px] text-slate-500 font-medium">
-                        + {lesson.pdfFiles.length - 2} outros arquivos PDF
-                      </span>
-                    )}
-                  </div>
-                ) : (
-                  <div className="p-2 rounded-xl bg-slate-50 border border-slate-100 text-center">
-                    <span className="text-[11px] text-slate-400 font-medium">
-                      Sem arquivo PDF anexado
-                    </span>
-                  </div>
-                )}
+
+                      {/* Botões "Abrir material" e "Baixar material" */}
+                      <div className="flex items-center gap-1.5 pt-1 border-t border-slate-200/80">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenMaterialDirect(targetMaterialPath, targetMaterialName)}
+                          disabled={Boolean(downloadingMaterialKey)}
+                          className="flex-1 flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg bg-black text-white hover:bg-slate-800 text-[11px] font-bold transition shadow-2xs disabled:opacity-50"
+                          title="Abrir o material no navegador via createSignedUrl"
+                        >
+                          {isOpening ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <ExternalLink className="h-3 w-3" />
+                          )}
+                          <span>Abrir material</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleDownloadMaterialDirect(targetMaterialPath, targetMaterialName)}
+                          disabled={Boolean(downloadingMaterialKey)}
+                          className="flex items-center justify-center gap-1 py-1.5 px-2.5 rounded-lg bg-white hover:bg-slate-200 text-black border border-slate-300 text-[11px] font-bold transition disabled:opacity-50"
+                          title="Baixar material para o computador via createSignedUrl"
+                        >
+                          {isDownloading ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <Download className="h-3 w-3" />
+                          )}
+                          <span className="hidden sm:inline">Baixar</span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* Card Action Buttons */}
@@ -744,19 +1162,20 @@ export const SistemaEstudo: React.FC<SistemaEstudoProps> = ({
                   className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-orange-300 hover:bg-orange-400 text-stone-900 border border-orange-400/80 text-xs font-black transition shadow-xs"
                 >
                   <Eye className="h-3.5 w-3.5" />
-                  <span>Abrir Aula & Estudo</span>
+                  <span>{lesson.tipo === 'atividade' ? 'Abrir Atividade' : 'Abrir Aula & Estudo'}</span>
                 </button>
 
-                {/* Teacher Administration Controls (visible only in Teacher Access) */}
-                {userRole === 'professor' && (
+                {/* Controles de Professor: Restritos EXCLUSIVAMENTE ao autor da publicação */}
+                {userRole === 'professor' && isAuthorTeacher(lesson) ? (
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => {
                         setEditingLesson(lesson);
+                        setTeacherModalDefaultTipo(lesson.tipo || 'aula');
                         setIsTeacherModalOpen(true);
                       }}
                       className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-black border border-slate-300 transition"
-                      title="Editar Aula, PDFs e Videoaulas MP3"
+                      title="Editar sua publicação"
                     >
                       <Edit3 className="h-3.5 w-3.5" />
                     </button>
@@ -764,22 +1183,28 @@ export const SistemaEstudo: React.FC<SistemaEstudoProps> = ({
                     <button
                       onClick={() => handleDeleteLesson(lesson.id)}
                       className="p-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition"
-                      title="Excluir aula"
+                      title="Excluir sua publicação"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
                   </div>
-                )}
+                ) : userRole === 'professor' ? (
+                  <span className="text-[10px] text-slate-400 font-semibold px-2 py-1 bg-slate-50 rounded-lg border border-slate-200">
+                    Autor: {lesson.teacherName.split(' ')[0]}
+                  </span>
+                ) : null}
               </div>
             </div>
           ))}
         </div>
       )}
 
-      {/* MODAL 1: Teacher Create/Edit Lesson */}
+      {/* MODAL 1: Teacher Create/Edit Lesson or Activity */}
       {isTeacherModalOpen && (
         <TeacherLessonModal
           lessonToEdit={editingLesson}
+          defaultTipo={teacherModalDefaultTipo}
+          currentUser={currentUser}
           onSave={handleSaveLesson}
           onClose={() => {
             setIsTeacherModalOpen(false);
@@ -839,6 +1264,13 @@ export const SistemaEstudo: React.FC<SistemaEstudoProps> = ({
           </div>
         </div>
       )}
+
+      {/* MODAL 5: Supabase Config & Diagnostics Modal */}
+      <SupabaseConfigModal
+        isOpen={showSupabaseModal}
+        onClose={() => setShowSupabaseModal(false)}
+        onConnectionChanged={() => syncWithSupabase(true)}
+      />
     </div>
   );
 };

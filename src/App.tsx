@@ -24,7 +24,8 @@ import {
   LogOut,
   User,
   Key,
-  UserPlus
+  UserPlus,
+  Database
 } from 'lucide-react';
 
 import { ActiveTab, AppSettings, UserRole, UserAccount, VoiceSpeechStyle } from './types';
@@ -32,6 +33,12 @@ import { useSpeechSynthesis } from './hooks/useSpeechSynthesis';
 import { useSpeechRecognition } from './hooks/useSpeechRecognition';
 import { getCurrentUser, setCurrentUser as setStoredCurrentUser } from './data/authUsersData';
 import { AuthPortalModal } from './components/AuthPortalModal';
+import { SupabaseConfigModal } from './components/SupabaseConfigModal';
+import { 
+  isSupabaseConfigured, 
+  supabaseGetCurrentUserProfile, 
+  supabaseSignOut 
+} from './lib/supabase';
 
 import { SistemaEstudo } from './components/SistemaEstudo';
 import { FalarPorMim } from './components/FalarPorMim';
@@ -58,6 +65,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('estudos');
   const [showSettings, setShowSettings] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showSupabaseModal, setShowSupabaseModal] = useState(false);
 
   // Authenticated user session
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(() => {
@@ -84,6 +92,19 @@ export default function App() {
     }
   }, []);
 
+  // Check Supabase session on startup if configured
+  useEffect(() => {
+    if (isSupabaseConfigured()) {
+      supabaseGetCurrentUserProfile().then((profile) => {
+        if (profile) {
+          setCurrentUser(profile);
+          setUserRole(profile.role);
+          setShowAuthModal(false);
+        }
+      });
+    }
+  }, []);
+
   const handleSuccessLogin = (user: UserAccount) => {
     setCurrentUser(user);
     setUserRole(user.role);
@@ -91,7 +112,10 @@ export default function App() {
     setActiveTab('estudos');
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    if (isSupabaseConfigured()) {
+      await supabaseSignOut();
+    }
     setStoredCurrentUser(null);
     setCurrentUser(null);
     setShowAuthModal(true);
@@ -377,6 +401,22 @@ export default function App() {
               </button>
             )}
 
+            {/* Supabase Connection Button */}
+            <button
+              onClick={() => setShowSupabaseModal(true)}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold transition border shadow-2xs ${
+                isDarkBlueOrange
+                  ? 'bg-[#101e42] hover:bg-[#162754] text-slate-200 border-[#1f3366]'
+                  : 'bg-white hover:bg-stone-100 text-stone-800 border-stone-300'
+              }`}
+              title="Status do banco Supabase, tabelas e credenciais"
+            >
+              <Database className="h-3.5 w-3.5 text-emerald-500" />
+              <span className="hidden lg:inline text-[11px] font-black">
+                {isSupabaseConfigured() ? 'Supabase' : 'Supabase (Configurar)'}
+              </span>
+            </button>
+
             {/* Quick Button to open Sistema de Aulas & PDFs */}
             <button
               onClick={() => {
@@ -590,6 +630,12 @@ export default function App() {
         onSuccessLogin={handleSuccessLogin}
         initialRole={userRole}
         allowClose={currentUser !== null}
+      />
+
+      {/* Supabase Config & Diagnostics Modal */}
+      <SupabaseConfigModal
+        isOpen={showSupabaseModal}
+        onClose={() => setShowSupabaseModal(false)}
       />
     </div>
   );
